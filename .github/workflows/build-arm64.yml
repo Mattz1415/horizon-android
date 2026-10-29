@@ -1,0 +1,41 @@
+name: Build Horizon ARM64
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
+
+      - name: Install cross-compilation dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+
+      - name: Clone Horizon upstream
+        run: |
+          git clone --depth 1 https://github.com/horizon-rust/horizon.git upstream-horizon
+
+      - name: Build Horizon with Cross
+        run: |
+          cargo install cross --git https://github.com/cross-rs/cross
+          cd upstream-horizon
+          cross build --target aarch64-unknown-linux-gnu --profile fast --bin horizon-client --bin horizon-prepare
+
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: horizon-arm64-binaries
+          path: |
+            upstream-horizon/target/aarch64-unknown-linux-gnu/fast/horizon-client
+            upstream-horizon/target/aarch64-unknown-linux-gnu/fast/horizon-prepare
