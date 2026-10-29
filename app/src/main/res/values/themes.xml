@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme with Dark OLED palette -->
+    <style name="Theme.HorizonLauncher" parent="Theme.MaterialComponents.NoActionBar">
+        <item name="android:windowBackground">@color/bg_oled_black</item>
+        <item name="android:statusBarColor">@color/bg_oled_black</item>
+        <item name="android:navigationBarColor">@color/bg_oled_black</item>
+        <item name="colorPrimary">@color/neon_cyan</item>
+        <item name="colorSecondary">@color/neon_azure</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+    </style>
+
+    <!-- Fullscreen immersive game theme -->
+    <style name="Theme.HorizonLauncher.Fullscreen" parent="Theme.HorizonLauncher">
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowBackground">@color/bg_oled_black</item>
+    </style>
+</resources>

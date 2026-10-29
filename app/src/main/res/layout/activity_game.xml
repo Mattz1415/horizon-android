@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_oled_black">
+
+    <!-- 1. Native Vulkan Surface for Horizon Engine -->
+    <SurfaceView
+        android:id="@+id/gameSurfaceView"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- 2. Transparent Touch Camera Look Area (Full Screen) -->
+    <View
+        android:id="@+id/touchCameraArea"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@android:color/transparent" />
+
+    <!-- 3. Top Utility Controls Bar -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="12dp"
+        android:gravity="center_vertical">
+
+        <Button
+            android:id="@+id/btnEsc"
+            android:layout_width="60dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_control_button"
+            android:text="ESC"
+            android:textColor="@color/control_text"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnF3"
+            android:layout_width="60dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_control_button"
+            android:text="F3"
+            android:textColor="@color/control_text"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btnChat"
+            android:layout_width="60dp"
+            android:layout_height="36dp"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/bg_control_button"
+            android:text="CHAT"
+            android:textColor="@color/control_text"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/btnInv"
+            android:layout_width="60dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_control_button"
+            android:text="INV"
+            android:textColor="@color/control_text"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- 4. Left-Side Virtual D-Pad (W, A, S, D, Sneak) -->
+    <RelativeLayout
+        android:id="@+id/dpadContainer"
+        android:layout_width="160dp"
+        android:layout_height="160dp"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="24dp"
+        android:layout_marginBottom="24dp">
+
+        <!-- D-Pad Up (W) -->
+        <Button
+            android:id="@+id/btnUp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_centerHorizontal="true"
+            android:layout_alignParentTop="true"
+            android:background="@drawable/bg_dpad_button"
+            android:text="▲"
+            android:textColor="@color/control_text"
+            android:textSize="14sp" />
+
+        <!-- D-Pad Left (A) -->
+        <Button
+            android:id="@+id/btnLeft"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="@drawable/bg_dpad_button"
+            android:text="◀"
+            android:textColor="@color/control_text"
+            android:textSize="14sp" />
+
+        <!-- Center Sneak (Shift) -->
+        <Button
+            android:id="@+id/btnSneak"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_centerInParent="true"
+            android:background="@drawable/bg_dpad_button"
+            android:text="◆"
+            android:textColor="@color/neon_cyan"
+            android:textSize="12sp" />
+
+        <!-- D-Pad Right (D) -->
+        <Button
+            android:id="@+id/btnRight"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:background="@drawable/bg_dpad_button"
+            android:text="▶"
+            android:textColor="@color/control_text"
+            android:textSize="14sp" />
+
+        <!-- D-Pad Down (S) -->
+        <Button
+            android:id="@+id/btnDown"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_centerHorizontal="true"
+            android:layout_alignParentBottom="true"
+            android:background="@drawable/bg_dpad_button"
+            android:text="▼"
+            android:textColor="@color/control_text"
+            android:textSize="14sp" />
+    </RelativeLayout>
+
+    <!-- 5. Right-Side Action Buttons (Jump, Attack, Place) -->
+    <RelativeLayout
+        android:id="@+id/actionButtonsContainer"
+        android:layout_width="180dp"
+        android:layout_height="180dp"
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="24dp"
+        android:layout_marginBottom="24dp">
+
+        <!-- Attack / Destroy (Left Click / PRI) -->
+        <Button
+            android:id="@+id/btnAttack"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_alignParentTop="true"
+            android:layout_centerHorizontal="true"
+            android:background="@drawable/bg_control_button"
+            android:text="PRI"
+            android:textColor="@color/neon_cyan"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <!-- Place / Use (Right Click / SEC) -->
+        <Button
+            android:id="@+id/btnPlace"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="@drawable/bg_control_button"
+            android:text="SEC"
+            android:textColor="@color/neon_azure"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
+        <!-- Jump (Space) -->
+        <Button
+            android:id="@+id/btnJump"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_alignParentBottom="true"
+            android:layout_centerHorizontal="true"
+            android:background="@drawable/bg_control_button"
+            android:text="JUMP"
+            android:textColor="@color/control_text"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
+
+</FrameLayout>

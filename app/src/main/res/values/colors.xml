@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Pure OLED Dark & Neon Cyan Identity -->
+    <color name="bg_oled_black">#000000</color>
+    <color name="bg_acrylic_glass">#D9101218</color>
+    <color name="bg_card">#161922</color>
+
+    <color name="neon_cyan">#00F0FF</color>
+    <color name="neon_azure">#0080FF</color>
+    <color name="neon_cyan_glow">#3300F0FF</color>
+
+    <color name="glass_border">#2EFFFFFF</color>
+    <color name="glass_border_active">#8000F0FF</color>
+
+    <color name="text_primary">#F0F4F8</color>
+    <color name="text_secondary">#8C9BAE</color>
+    <color name="text_muted">#526071</color>
+
+    <!-- Touch Controls Colors -->
+    <color name="control_btn_bg">#4D0B0E14</color>
+    <color name="control_btn_pressed">#8000F0FF</color>
+    <color name="control_btn_border">#5900F0FF</color>
+    <color name="control_text">#E0F7FA</color>
+</resources>
