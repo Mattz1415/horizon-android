@@ -7,6 +7,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import dev.playhorizon.launcher.core.AssetManagerService
+import dev.playhorizon.launcher.core.HorizonNativeBridge
 
 class MainActivity : AppCompatActivity() {
 
@@ -28,10 +29,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        if (assetManager.isAssetsReady()) {
-            tvStatus.text = getString(R.string.status_ready)
+        val enginePath = HorizonNativeBridge.getEngineLibraryPath(this)
+        if (enginePath != null) {
+            tvStatus.text = "Horizon Rust Engine Bundled (Native ARM64)"
         } else {
-            tvStatus.text = "Assets Directory Initialized"
+            tvStatus.text = getString(R.string.status_ready)
         }
 
         btnPlay.setOnClickListener {
