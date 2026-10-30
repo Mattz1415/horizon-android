@@ -43,10 +43,22 @@ jobs:
         with:
           targets: aarch64-linux-android, x86_64-linux-android
 
+      - name: Cache Cargo & Target
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
+            target
+          key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-target-
+
       - name: Install cargo-ndk
         run: |
           rustup target add aarch64-linux-android x86_64-linux-android
-          cargo install cargo-ndk
+          cargo install cargo-ndk || true
 
       - name: Compile Native Rust Engine (aarch64-linux-android)
         run: |
@@ -63,12 +75,13 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '8.10.2'
+          gradle-version: '8.14'
 
       - name: Assemble APKs via Gradle
         working-directory: packaging/android
         run: |
-          gradle assembleDebug assembleRelease --no-daemon --stacktrace || gradle assembleDebug --no-daemon
+          mkdir -p assets src/main/jniLibs
+          gradle assembleDebug --no-daemon --stacktrace
 
       - name: Stage Artifacts
         run: |
