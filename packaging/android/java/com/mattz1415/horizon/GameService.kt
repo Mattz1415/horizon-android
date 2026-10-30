@@ -1,4 +1,4 @@
-package dev.horizon.android
+package com.mattz1415.horizon
 
 import android.app.*
 import android.content.BroadcastReceiver
@@ -10,19 +10,14 @@ import android.os.IBinder
 import android.os.Process
 import androidx.core.app.NotificationCompat
 
-/**
- * Foreground Service running inside the `:game` process to prevent Android OS
- * from terminating the game engine during background transitions, and providing
- * an instant Force-Kill action in the notification shade.
- */
 class GameService : Service() {
 
     companion object {
         const val CHANNEL_ID = "horizon_game_service_channel"
         const val NOTIFICATION_ID = 26301
-        const val ACTION_START = "dev.horizon.android.ACTION_START_GAME_SERVICE"
-        const val ACTION_STOP = "dev.horizon.android.ACTION_STOP_GAME_SERVICE"
-        const val ACTION_FORCE_KILL = "dev.horizon.android.ACTION_FORCE_KILL_GAME"
+        const val ACTION_START = "com.mattz1415.horizon.ACTION_START_GAME_SERVICE"
+        const val ACTION_STOP = "com.mattz1415.horizon.ACTION_STOP_GAME_SERVICE"
+        const val ACTION_FORCE_KILL = "com.mattz1415.horizon.ACTION_FORCE_KILL_GAME"
 
         fun start(context: Context) {
             val intent = Intent(context, GameService::class.java).apply {

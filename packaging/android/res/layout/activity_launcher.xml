@@ -1,0 +1,749 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/pitch_obsidian"
+    android:orientation="horizontal"
+    android:padding="8dp">
+
+    <!-- 1. Compact Glass Navigation Rail (Left Sidebar) -->
+    <LinearLayout
+        android:layout_width="72dp"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_liquid_card"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingVertical="8dp">
+
+        <!-- Logo Icon -->
+        <ImageView
+            android:id="@+id/ivLogo"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/launcher_icon" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:fontFamily="sans-serif-black"
+            android:letterSpacing="0.1"
+            android:text="HORIZON"
+            android:textColor="@color/titanium_silver"
+            android:textSize="9sp" />
+
+        <View
+            android:layout_width="48dp"
+            android:layout_height="1dp"
+            android:layout_marginVertical="8dp"
+            android:background="@color/glass_border_subtle" />
+
+        <!-- Nav 1: Play -->
+        <LinearLayout
+            android:id="@+id/navPlay"
+            android:layout_width="56dp"
+            android:layout_height="44dp"
+            android:background="@drawable/bg_liquid_pill_selected"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="▶"
+                android:textColor="@color/muted_mercury"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Play"
+                android:textColor="@color/muted_mercury"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Nav 2: Downloader -->
+        <LinearLayout
+            android:id="@+id/navDownloader"
+            android:layout_width="56dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_liquid_pill"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⤓"
+                android:textColor="@color/cool_ash_grey"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Download"
+                android:textColor="@color/cool_ash_grey"
+                android:textSize="9sp" />
+        </LinearLayout>
+
+        <!-- Nav 3: Accounts -->
+        <LinearLayout
+            android:id="@+id/navAccounts"
+            android:layout_width="56dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_liquid_pill"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="👤"
+                android:textColor="@color/cool_ash_grey"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Accounts"
+                android:textColor="@color/cool_ash_grey"
+                android:textSize="9sp" />
+        </LinearLayout>
+
+        <!-- Nav 4: Mods -->
+        <LinearLayout
+            android:id="@+id/navMods"
+            android:layout_width="56dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_liquid_pill"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🧩"
+                android:textColor="@color/cool_ash_grey"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mods"
+                android:textColor="@color/cool_ash_grey"
+                android:textSize="9sp" />
+        </LinearLayout>
+
+        <!-- Nav 5: Settings -->
+        <LinearLayout
+            android:id="@+id/navSettings"
+            android:layout_width="56dp"
+            android:layout_height="44dp"
+            android:layout_marginTop="4dp"
+            android:background="@drawable/bg_liquid_pill"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="⚙"
+                android:textColor="@color/cool_ash_grey"
+                android:textSize="14sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Logs"
+                android:textColor="@color/cool_ash_grey"
+                android:textSize="9sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- 2. Content Area via ViewFlipper -->
+    <ViewFlipper
+        android:id="@+id/viewFlipper"
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_marginStart="8dp"
+        android:layout_weight="1">
+
+        <!-- ================= PAGE 1: PLAY DASHBOARD ================= -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+
+            <!-- Left Sub-card: Parameters -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginEnd="8dp"
+                android:layout_weight="1.2"
+                android:background="@drawable/bg_liquid_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <!-- Header Status -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <View
+                        android:id="@+id/dotStatus"
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:background="@color/accent_amber" />
+
+                    <TextView
+                        android:id="@+id/tvVerificationStatus"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:layout_weight="1"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="Checking resources..."
+                        android:textColor="@color/muted_mercury"
+                        android:textSize="12sp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_liquid_pill"
+                        android:paddingHorizontal="6dp"
+                        android:paddingVertical="2dp"
+                        android:text="26.3 RUST"
+                        android:textColor="@color/cool_ash_grey"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="8dp"
+                    android:background="@color/glass_border_subtle" />
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:fillViewport="true">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <!-- RAM Slider Info -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <TextView
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="RAM Allocation"
+                                android:textColor="@color/cool_ash_grey"
+                                android:textSize="11sp" />
+
+                            <TextView
+                                android:id="@+id/tvRamVal"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif-medium"
+                                android:text="2048 MB"
+                                android:textColor="@color/muted_mercury"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <SeekBar
+                            android:id="@+id/sbRam"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:max="6144"
+                            android:min="1024"
+                            android:progress="2048" />
+
+                        <!-- Worker Threads & Backend -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="4dp"
+                            android:orientation="horizontal">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginEnd="4dp"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Worker Threads"
+                                    android:textColor="@color/cool_ash_grey"
+                                    android:textSize="10sp" />
+
+                                <Spinner
+                                    android:id="@+id/spnThreads"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="36dp"
+                                    android:layout_marginTop="2dp"
+                                    android:background="@drawable/bg_liquid_pill" />
+                            </LinearLayout>
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_marginStart="4dp"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Graphics Backend"
+                                    android:textColor="@color/cool_ash_grey"
+                                    android:textSize="10sp" />
+
+                                <Spinner
+                                    android:id="@+id/spnBackend"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="36dp"
+                                    android:layout_marginTop="2dp"
+                                    android:background="@drawable/bg_liquid_pill" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <!-- Touch Scheme -->
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="6dp"
+                            android:text="Touch Control Scheme"
+                            android:textColor="@color/cool_ash_grey"
+                            android:textSize="10sp" />
+
+                        <Spinner
+                            android:id="@+id/spnTouchScheme"
+                            android:layout_width="match_parent"
+                            android:layout_height="36dp"
+                            android:layout_marginTop="2dp"
+                            android:background="@drawable/bg_liquid_pill" />
+
+                    </LinearLayout>
+                </ScrollView>
+            </LinearLayout>
+
+            <!-- Right Sub-card: Active Identity & Big Launch CTA -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="0.8"
+                android:background="@drawable/bg_liquid_card"
+                android:orientation="vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Active Player Identity"
+                    android:textColor="@color/cool_ash_grey"
+                    android:textSize="10sp" />
+
+                <EditText
+                    android:id="@+id/etUsername"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:layout_marginTop="4dp"
+                    android:background="@drawable/bg_liquid_pill"
+                    android:hint="Enter Player Name"
+                    android:imeOptions="actionDone"
+                    android:inputType="textPersonName"
+                    android:maxLines="1"
+                    android:paddingHorizontal="10dp"
+                    android:text="HorizonPlayer"
+                    android:textColor="@color/muted_mercury"
+                    android:textColorHint="@color/cool_ash_grey"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Offline UUID mode"
+                    android:textColor="@color/cool_ash_grey"
+                    android:textSize="9sp" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1" />
+
+                <!-- Dynamic PLAY / DOWNLOAD Button -->
+                <Button
+                    android:id="@+id/btnLaunchGame"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:background="@drawable/bg_play_button"
+                    android:letterSpacing="0.08"
+                    android:text="PLAY 26.3"
+                    android:textColor="#000000"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ================= PAGE 2: RESOURCE CENTER (DOWNLOADER) ================= -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_liquid_card"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Minecraft 26.3 Resource Pipeline"
+                        android:textColor="@color/muted_mercury"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvDownloaderStage"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Tahap: Standby"
+                        android:textColor="@color/cool_ash_grey"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/btnImportZip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="38dp"
+                    android:background="@drawable/bg_liquid_pill"
+                    android:text="Import Prepared .zip (SAF)"
+                    android:textColor="@color/titanium_silver"
+                    android:textSize="10sp" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginVertical="10dp"
+                android:background="@color/glass_border_subtle" />
+
+            <!-- Progress Bar -->
+            <ProgressBar
+                android:id="@+id/pbDownload"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="14dp"
+                android:max="100"
+                android:progress="0"
+                android:progressBackgroundTint="@color/charcoal_mesh"
+                android:progressTint="@color/titanium_silver" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tvDownloadDetail"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Tekan Start untuk memulai download paralel 12 worker dari Mojang."
+                    android:textColor="@color/cool_ash_grey"
+                    android:textSize="11sp" />
+
+                <TextView
+                    android:id="@+id/tvDownloadSpeed"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0.00 MB/s"
+                    android:textColor="@color/titanium_silver"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <!-- Action Controls -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btnStartDownload"
+                    android:layout_width="0dp"
+                    android:layout_height="42dp"
+                    android:layout_marginEnd="6dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_play_button"
+                    android:text="START / RESUME DOWNLOAD 26.3"
+                    android:textColor="#000000"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnCheckResources"
+                    android:layout_width="100dp"
+                    android:layout_height="42dp"
+                    android:background="@drawable/bg_liquid_pill"
+                    android:text="VERIFY"
+                    android:textColor="@color/titanium_silver"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ================= PAGE 3: ACCOUNTS & PROFILES ================= -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_liquid_card"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Manajemen Akun &amp; Profil"
+                android:textColor="@color/muted_mercury"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/etNewAccount"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_liquid_pill"
+                    android:hint="Username Baru"
+                    android:paddingHorizontal="10dp"
+                    android:textColor="@color/muted_mercury"
+                    android:textColorHint="@color/cool_ash_grey"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnAddAccount"
+                    android:layout_width="100dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_play_button"
+                    android:text="TAMBAH"
+                    android:textColor="#000000"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:text="Daftar Profil Tersimpan (accounts.json):"
+                android:textColor="@color/cool_ash_grey"
+                android:textSize="11sp" />
+
+            <ListView
+                android:id="@+id/lvAccounts"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="4dp"
+                android:layout_weight="1"
+                android:divider="@color/glass_border_subtle"
+                android:dividerHeight="1dp" />
+        </LinearLayout>
+
+        <!-- ================= PAGE 4: MODS & PACKS ================= -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_liquid_card"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Mods (.hmod) &amp; Resource Packs"
+                    android:textColor="@color/muted_mercury"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_liquid_pill"
+                    android:paddingHorizontal="6dp"
+                    android:paddingVertical="2dp"
+                    android:text="arm64-v8a / x86_64"
+                    android:textColor="@color/cool_ash_grey"
+                    android:textSize="10sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/etModUrl"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_liquid_pill"
+                    android:hint="https://example.com/mod.hmod"
+                    android:paddingHorizontal="10dp"
+                    android:textColor="@color/muted_mercury"
+                    android:textColorHint="@color/cool_ash_grey"
+                    android:textSize="12sp" />
+
+                <Button
+                    android:id="@+id/btnInstallMod"
+                    android:layout_width="90dp"
+                    android:layout_height="40dp"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_play_button"
+                    android:text="INSTALL"
+                    android:textColor="#000000"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Native Mods Terpasang:"
+                android:textColor="@color/cool_ash_grey"
+                android:textSize="11sp" />
+
+            <ListView
+                android:id="@+id/lvMods"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="4dp"
+                android:layout_weight="1"
+                android:divider="@color/glass_border_subtle"
+                android:dividerHeight="1dp" />
+        </LinearLayout>
+
+        <!-- ================= PAGE 5: CRASH INSPECTOR & LOGS ================= -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_liquid_card"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Crash Inspector &amp; Logcat (HorizonRustPanic)"
+                    android:textColor="@color/muted_mercury"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btnCopyLogs"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:background="@drawable/bg_liquid_pill"
+                    android:text="Copy Log"
+                    android:textColor="@color/titanium_silver"
+                    android:textSize="11sp" />
+
+                <Button
+                    android:id="@+id/btnClearLogs"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:layout_marginStart="6dp"
+                    android:background="@drawable/bg_liquid_pill"
+                    android:text="Clear"
+                    android:textColor="@color/accent_red"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_marginTop="8dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_liquid_pill"
+                android:padding="8dp">
+
+                <TextView
+                    android:id="@+id/tvLogOutput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:text="Belum ada crash atau log tercatat."
+                    android:textColor="@color/cool_ash_grey"
+                    android:textSize="10sp" />
+            </ScrollView>
+        </LinearLayout>
+
+    </ViewFlipper>
+</LinearLayout>

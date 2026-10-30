@@ -1,4 +1,4 @@
-package dev.horizon.android
+package com.mattz1415.horizon
 
 import android.app.NativeActivity
 import android.content.ContentValues
@@ -22,11 +22,6 @@ import android.widget.FrameLayout
 import java.io.File
 import java.io.FileOutputStream
 
-/**
- * Isolated game activity executing in `android:process=":game"`.
- * Houses the WGPU / Rust Minecraft 26.3 simulation, IME soft keyboard proxy,
- * and MediaStore screenshot bridge.
- */
 class HorizonGameActivity : NativeActivity() {
 
     companion object {
@@ -59,9 +54,6 @@ class HorizonGameActivity : NativeActivity() {
         var currentInstance: HorizonGameActivity? = null
             private set
 
-        /**
-         * Called directly from Rust engine to show Android Soft Keyboard.
-         */
         @JvmStatic
         fun requestShowIme(initialText: String) {
             currentInstance?.runOnUiThread {
@@ -69,9 +61,6 @@ class HorizonGameActivity : NativeActivity() {
             }
         }
 
-        /**
-         * Called directly from Rust engine to hide Android Soft Keyboard.
-         */
         @JvmStatic
         fun requestHideIme() {
             currentInstance?.runOnUiThread {
@@ -79,9 +68,6 @@ class HorizonGameActivity : NativeActivity() {
             }
         }
 
-        /**
-         * Called from Rust engine (F2 key / in-game button) to save screenshot to MediaStore.
-         */
         @JvmStatic
         fun saveScreenshotMediaStore(pngBytes: ByteArray, filename: String): Boolean {
             val act = currentInstance ?: return false
@@ -96,7 +82,6 @@ class HorizonGameActivity : NativeActivity() {
         super.onCreate(savedInstanceState)
         currentInstance = this
 
-        // Start Foreground Service to keep engine alive in background
         GameService.start(this)
 
         val gameDataDir = File(filesDir, "game_data").apply { mkdirs() }.absolutePath
@@ -107,7 +92,6 @@ class HorizonGameActivity : NativeActivity() {
         val backend = intent.getStringExtra("EXTRA_BACKEND") ?: "vulkan"
         val touchScheme = intent.getIntExtra("EXTRA_TOUCH_SCHEME", 0)
 
-        // Pass parameters into native Rust runtime
         nativeInitEnvironment(
             gameDataDir,
             resourcesDir,
@@ -247,8 +231,6 @@ class HorizonGameActivity : NativeActivity() {
         super.onDestroy()
         currentInstance = null
         GameService.stop(this)
-
-        // Membebaskan 100% memori GPU, WGPU, dan Rust Heap dengan mematikan proses :game
         Process.killProcess(Process.myPid())
     }
 }

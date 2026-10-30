@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Liquid Glass Compact Palette (Ultra-Dark Black & Slate Grey) -->
+    <color name="pitch_obsidian">#050507</color>
+    <color name="charcoal_mesh">#0E1015</color>
+    <color name="glass_surface">#9414161C</color>
+    <color name="glass_surface_light">#7320242C</color>
+    <color name="glass_border">#38FFFFFF</color>
+    <color name="glass_border_subtle">#0AFFFFFF</color>
+    <color name="titanium_silver">#E4E4E7</color>
+    <color name="cool_ash_grey">#9CA3AF</color>
+    <color name="muted_mercury">#F4F4F6</color>
+    <color name="accent_green">#10B981</color>
+    <color name="accent_amber">#F59E0B</color>
+    <color name="accent_red">#EF4444</color>
+</resources>

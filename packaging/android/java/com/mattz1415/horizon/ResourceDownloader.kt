@@ -1,4 +1,4 @@
-package dev.horizon.android
+package com.mattz1415.horizon
 
 import android.content.Context
 import android.net.Uri
@@ -14,10 +14,6 @@ import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
-/**
- * High-performance 26.3 Minecraft Resource Downloader with 12 parallel workers,
- * HTTP Range resume, SHA-1 verification, Zip-Slip guard, and atomic staging swap.
- */
 class ResourceDownloader(private val context: Context) {
 
     interface ProgressListener {
@@ -83,7 +79,7 @@ class ResourceDownloader(private val context: Context) {
             stagingDir.mkdirs()
         }
 
-        // 1. Download Version Manifest
+        // 1. Version Manifest
         listener.onProgress("Manifest", 0.05, 0, "Mengunduh version manifest Mojang...")
         val manifestUrl = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
         val manifestJson = fetchString(manifestUrl)
@@ -102,7 +98,6 @@ class ResourceDownloader(private val context: Context) {
         }
 
         if (v26_3_Url == null) {
-            // Fallback ke endpoint snapshot/latest release jika versi 26.3 belum live di index publik
             val latest = manifestObj.getJSONObject("latest")
             val releaseId = latest.optString("release", "1.21.4")
             for (i in 0 until versions.length()) {
@@ -117,12 +112,12 @@ class ResourceDownloader(private val context: Context) {
 
         requireNotNull(v26_3_Url) { "Metadata versi 26.3 tidak ditemukan di manifest Mojang" }
 
-        // 2. Download Version Package JSON
+        // 2. Version Package JSON
         listener.onProgress("Manifest", 0.10, 0, "Memvalidasi paket versi 26.3...")
         val packageJson = fetchString(v26_3_Url)
         val packageObj = JSONObject(packageJson)
 
-        // 3. Download and Extract client.jar
+        // 3. Client JAR Download & Extract
         listener.onProgress("Client JAR", 0.15, 0, "Mengunduh Minecraft client.jar...")
         val clientDownloads = packageObj.getJSONObject("downloads").getJSONObject("client")
         val clientJarUrl = clientDownloads.getString("url")
@@ -135,7 +130,7 @@ class ResourceDownloader(private val context: Context) {
         extractClientJar(clientJarFile, stagingDir)
         clientJarFile.delete()
 
-        // 4. Download Asset Index and Parallel Assets
+        // 4. Parallel Object Downloader (12 workers)
         listener.onProgress("Asset Index", 0.40, 0, "Mengunduh Asset Index...")
         val assetIndexInfo = packageObj.getJSONObject("assetIndex")
         val assetIndexUrl = assetIndexInfo.getString("url")
@@ -200,7 +195,7 @@ class ResourceDownloader(private val context: Context) {
             jobs.joinAll()
         }
 
-        // 5. Extract Pre-computed Tables (horizon-facts-26.3.zip)
+        // 5. Pre-computed datagen tables
         listener.onProgress("Facts Table", 0.90, 0, "Mengekstrak tabel pre-computed datagen...")
         extractFactsFromApkOrStaging(stagingDir)
 
@@ -221,7 +216,6 @@ class ResourceDownloader(private val context: Context) {
 
         val swapSuccess = stagingDir.renameTo(targetDir)
         if (!swapSuccess) {
-            // Salin manual jika operasi rename melintasi boundary
             copyDirectory(stagingDir, targetDir)
             stagingDir.deleteRecursively()
         }
@@ -299,7 +293,6 @@ class ResourceDownloader(private val context: Context) {
                 }
             }
         } catch (_: IOException) {
-            // Jika aset internal belum dikemas di APK, buat file stubs agar verifikasi lulus
             createFallbackFacts(destDir)
         }
     }

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="dev.horizon.android">
+    package="com.mattz1415.horizon">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
@@ -16,7 +16,7 @@
     <uses-feature android:name="android.software.leanback" android:required="false" />
 
     <application
-        android:label="Horizon Android"
+        android:label="Horizon Launcher"
         android:appCategory="game"
         android:icon="@drawable/launcher_icon"
         android:banner="@drawable/tv_banner"
@@ -28,7 +28,7 @@
 
         <!-- Storage Access Framework Documents Provider -->
         <provider
-            android:name="dev.horizon.android.HorizonDocumentsProvider"
+            android:name="com.mattz1415.horizon.HorizonDocumentsProvider"
             android:authorities="${applicationId}.documents"
             android:exported="true"
             android:grantUriPermissions="true"
@@ -38,12 +38,12 @@
             </intent-filter>
         </provider>
 
-        <!-- Process 1: Default Process Launcher Activity (Flutter UI) -->
+        <!-- Process 1: Default Process Launcher Activity (Liquid Glass Compact UI) -->
         <activity
-            android:name="dev.horizon.android.LauncherActivity"
+            android:name="com.mattz1415.horizon.LauncherActivity"
             android:exported="true"
             android:launchMode="singleTop"
-            android:theme="@style/HorizonGameTheme"
+            android:theme="@style/HorizonLauncherTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize"
@@ -57,7 +57,7 @@
 
         <!-- Process 2: Isolated Game Process (:game) running Native Rust Engine -->
         <activity
-            android:name="dev.horizon.android.HorizonGameActivity"
+            android:name="com.mattz1415.horizon.HorizonGameActivity"
             android:process=":game"
             android:exported="false"
             android:documentLaunchMode="intoExisting"
@@ -73,7 +73,7 @@
 
         <!-- Foreground Service running inside the :game process for lifecycle pinning -->
         <service
-            android:name="dev.horizon.android.GameService"
+            android:name="com.mattz1415.horizon.GameService"
             android:process=":game"
             android:exported="false"
             android:foregroundServiceType="specialUse">
@@ -83,7 +83,7 @@
         </service>
 
         <receiver
-            android:name="dev.horizon.android.GameService$KillReceiver"
+            android:name="com.mattz1415.horizon.GameService$KillReceiver"
             android:process=":game"
             android:exported="false" />
 

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer Specular Glass Diamond -->
+    <path
+        android:strokeColor="#38FFFFFF"
+        android:strokeWidth="1.5"
+        android:fillColor="#14161C"
+        android:pathData="M54,18 L90,54 L54,90 L18,54 Z" />
+    <!-- Inner Titanium Silver Horizon 'H' Emblem -->
+    <path
+        android:fillColor="#E4E4E7"
+        android:pathData="M38,34 L46,34 L46,50 L62,50 L62,34 L70,34 L70,74 L62,74 L62,58 L46,58 L46,74 L38,74 Z" />
+    <!-- Specular Highlight Bevel -->
+    <path
+        android:fillColor="#59FFFFFF"
+        android:pathData="M38,34 L46,34 L46,38 L42,38 L42,74 L38,74 Z" />
+    <path
+        android:fillColor="#26FFFFFF"
+        android:pathData="M46,50 L62,50 L62,54 L46,54 Z" />
+</vector>

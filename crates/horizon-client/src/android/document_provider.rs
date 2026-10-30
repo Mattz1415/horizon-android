@@ -29,6 +29,18 @@ fn failure(env: &mut JNIEnv<'_>, message: &str) {
 }
 
 #[unsafe(no_mangle)]
+extern "system" fn Java_com_mattz1415_horizon_HorizonDocumentsProvider_nativeCall(
+    env: JNIEnv<'_>,
+    class: JClass<'_>,
+    home: JString<'_>,
+    operation: JString<'_>,
+    id: JString<'_>,
+    arg: JString<'_>,
+) -> jstring {
+    Java_dev_horizon_android_HorizonDocumentsProvider_nativeCall(env, class, home, operation, id, arg)
+}
+
+#[unsafe(no_mangle)]
 extern "system" fn Java_dev_horizon_android_HorizonDocumentsProvider_nativeCall(
     mut env: JNIEnv<'_>,
     _class: JClass<'_>,
@@ -59,6 +71,17 @@ extern "system" fn Java_dev_horizon_android_HorizonDocumentsProvider_nativeCall(
             std::ptr::null_mut()
         }
     }
+}
+
+#[unsafe(no_mangle)]
+extern "system" fn Java_com_mattz1415_horizon_HorizonDocumentsProvider_nativeOpen(
+    env: JNIEnv<'_>,
+    class: JClass<'_>,
+    home: JString<'_>,
+    id: JString<'_>,
+    mode: JString<'_>,
+) -> jint {
+    Java_dev_horizon_android_HorizonDocumentsProvider_nativeOpen(env, class, home, id, mode)
 }
 
 #[unsafe(no_mangle)]

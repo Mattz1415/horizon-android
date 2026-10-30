@@ -35,6 +35,47 @@ pub fn drain_ime_events() -> Vec<ImeEvent> {
     }
 }
 
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeInitEnvironment(
+    env: JNIEnv,
+    class: JClass,
+    game_data_dir: JString,
+    resources_dir: JString,
+    ram_mb: jint,
+    threads: jint,
+    backend: JString,
+    touch_scheme: jint,
+) {
+    Java_dev_horizon_android_HorizonGameActivity_nativeInitEnvironment(
+        env, class, game_data_dir, resources_dir, ram_mb, threads, backend, touch_scheme,
+    );
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeOnImeInput(
+    env: JNIEnv,
+    class: JClass,
+    text: JString,
+) {
+    Java_dev_horizon_android_HorizonGameActivity_nativeOnImeInput(env, class, text);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeOnImeBackspace(
+    env: JNIEnv,
+    class: JClass,
+) {
+    Java_dev_horizon_android_HorizonGameActivity_nativeOnImeBackspace(env, class);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeOnImeDone(
+    env: JNIEnv,
+    class: JClass,
+) {
+    Java_dev_horizon_android_HorizonGameActivity_nativeOnImeDone(env, class);
+}
+
 /// JNI: Initializes working directories, Rayon threadpool, and parameters from HorizonGameActivity.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_dev_horizon_android_HorizonGameActivity_nativeInitEnvironment(
@@ -121,8 +162,9 @@ pub fn request_show_soft_keyboard(initial_text: &str) {
     let Some(vm) = JVM.get() else { return };
     if let Ok(mut env) = vm.attach_current_thread() {
         if let Ok(j_text) = env.new_string(initial_text) {
-            let class_name = "dev/horizon/android/HorizonGameActivity";
-            if let Ok(cls) = env.find_class(class_name) {
+            let class_name = "com/mattz1415/horizon/HorizonGameActivity";
+            let cls = env.find_class(class_name).or_else(|_| env.find_class("dev/horizon/android/HorizonGameActivity"));
+            if let Ok(cls) = cls {
                 let _ = env.call_static_method(
                     cls,
                     "requestShowIme",
@@ -138,8 +180,9 @@ pub fn request_show_soft_keyboard(initial_text: &str) {
 pub fn request_hide_soft_keyboard() {
     let Some(vm) = JVM.get() else { return };
     if let Ok(mut env) = vm.attach_current_thread() {
-        let class_name = "dev/horizon/android/HorizonGameActivity";
-        if let Ok(cls) = env.find_class(class_name) {
+        let class_name = "com/mattz1415/horizon/HorizonGameActivity";
+        let cls = env.find_class(class_name).or_else(|_| env.find_class("dev/horizon/android/HorizonGameActivity"));
+        if let Ok(cls) = cls {
             let _ = env.call_static_method(cls, "requestHideIme", "()V", &[]);
         }
     }
@@ -151,8 +194,9 @@ pub fn save_screenshot_to_mediastore(png_bytes: &[u8], filename: &str) -> bool {
     if let Ok(mut env) = vm.attach_current_thread() {
         if let Ok(byte_array) = env.byte_array_from_slice(png_bytes) {
             if let Ok(j_filename) = env.new_string(filename) {
-                let class_name = "dev/horizon/android/HorizonGameActivity";
-                if let Ok(cls) = env.find_class(class_name) {
+                let class_name = "com/mattz1415/horizon/HorizonGameActivity";
+                let cls = env.find_class(class_name).or_else(|_| env.find_class("dev/horizon/android/HorizonGameActivity"));
+                if let Ok(cls) = cls {
                     let result = env.call_static_method(
                         cls,
                         "saveScreenshotMediaStore",

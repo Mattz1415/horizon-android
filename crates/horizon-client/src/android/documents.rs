@@ -130,6 +130,8 @@ pub fn picker_failed(error: &str) {
 /// Keep a conventional JNI export as well as explicit registration: Android
 /// may restore a picker result before the IME bridge has been initialized.
 #[unsafe(export_name = "Java_dev_horizon_android_HorizonActivity_nativeDocumentResult")]
+#[unsafe(export_name = "Java_com_mattz1415_horizon_HorizonActivity_nativeDocumentResult")]
+#[unsafe(export_name = "Java_com_mattz1415_horizon_HorizonGameActivity_nativeDocumentResult")]
 pub extern "system" fn document_result(
     mut env: JNIEnv<'_>,
     activity: JObject<'_>,
