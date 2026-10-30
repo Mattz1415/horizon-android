@@ -260,14 +260,20 @@ class GameActivity : NativeActivity() {
                 MotionEvent.ACTION_DOWN -> {
                     triggerHaptic()
                     button.isPressed = true
-                    val time = System.currentTimeMillis()
-                    dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, androidKeyCode, 0))
+                    HorizonNativeBridge.safeSendKey(androidKeyCode, true)
+                    try {
+                        val time = System.currentTimeMillis()
+                        dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, androidKeyCode, 0))
+                    } catch (ignored: Exception) {}
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     button.isPressed = false
-                    val time = System.currentTimeMillis()
-                    dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_UP, androidKeyCode, 0))
+                    HorizonNativeBridge.safeSendKey(androidKeyCode, false)
+                    try {
+                        val time = System.currentTimeMillis()
+                        dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_UP, androidKeyCode, 0))
+                    } catch (ignored: Exception) {}
                     true
                 }
                 else -> false

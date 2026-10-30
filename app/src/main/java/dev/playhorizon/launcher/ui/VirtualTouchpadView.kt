@@ -99,7 +99,9 @@ class VirtualTouchpadView @JvmOverloads constructor(
                 mouseX = w / 2f
                 mouseY = h / 2f
             }
-            HorizonNativeBridge.safeSendCursorPos(mouseX, mouseY)
+            val normX = (mouseX / w.toFloat()).coerceIn(0f, 1f)
+            val normY = (mouseY / h.toFloat()).coerceIn(0f, 1f)
+            HorizonNativeBridge.safeSendCursorPos(normX, normY)
             invalidate()
         }
     }
@@ -184,7 +186,9 @@ class VirtualTouchpadView @JvmOverloads constructor(
                 if (isMouseMode) {
                     mouseX = max(0f, min(w, mouseX + deltaX * mouseSpeed))
                     mouseY = max(0f, min(h, mouseY + deltaY * mouseSpeed))
-                    HorizonNativeBridge.safeSendCursorPos(mouseX, mouseY)
+                    val normX = if (w > 0) (mouseX / w).coerceIn(0f, 1f) else 0.5f
+                    val normY = if (h > 0) (mouseY / h).coerceIn(0f, 1f) else 0.5f
+                    HorizonNativeBridge.safeSendCursorPos(normX, normY)
                     invalidate()
                 } else {
                     HorizonNativeBridge.safeSendMouseMotion(deltaX * 1.5f, deltaY * 1.5f)
@@ -222,7 +226,9 @@ class VirtualTouchpadView @JvmOverloads constructor(
                         val h = if (height > 0) height.toFloat() else resources.displayMetrics.heightPixels.toFloat()
                         mouseX = max(0f, min(w, startTouchX))
                         mouseY = max(0f, min(h, startTouchY))
-                        HorizonNativeBridge.safeSendCursorPos(mouseX, mouseY)
+                        val normX = if (w > 0) (mouseX / w).coerceIn(0f, 1f) else 0.5f
+                        val normY = if (h > 0) (mouseY / h).coerceIn(0f, 1f) else 0.5f
+                        HorizonNativeBridge.safeSendCursorPos(normX, normY)
                         invalidate()
 
                         HorizonNativeBridge.safeSendMouseButton(HorizonNativeBridge.MOUSE_LEFT, true)

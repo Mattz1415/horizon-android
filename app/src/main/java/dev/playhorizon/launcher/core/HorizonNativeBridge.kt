@@ -36,9 +36,9 @@ object HorizonNativeBridge {
         }
     }
 
-    fun safeSendCursorPos(x: Float, y: Float) {
+    fun safeSendCursorPos(normX: Float, normY: Float) {
         try {
-            nativeSendCursorPos(x, y)
+            nativeSendCursorPos(normX, normY)
         } catch (e: Throwable) {
             Log.w(TAG, "nativeSendCursorPos notice: ${e.message}")
         }
@@ -52,6 +52,14 @@ object HorizonNativeBridge {
         }
     }
 
+    fun safeSendKey(keyCode: Int, isPressed: Boolean) {
+        try {
+            nativeSendKey(keyCode, isPressed)
+        } catch (e: Throwable) {
+            Log.w(TAG, "nativeSendKey notice: ${e.message}")
+        }
+    }
+
     fun isCursorGrabbed(): Boolean {
         return try {
             nativeIsCursorGrabbed()
@@ -61,7 +69,8 @@ object HorizonNativeBridge {
     }
 
     private external fun nativeSendMouseMotion(deltaX: Float, deltaY: Float)
-    private external fun nativeSendCursorPos(x: Float, y: Float)
+    private external fun nativeSendCursorPos(normX: Float, normY: Float)
     private external fun nativeSendMouseButton(button: Int, isPressed: Boolean)
+    private external fun nativeSendKey(keyCode: Int, isPressed: Boolean)
     private external fun nativeIsCursorGrabbed(): Boolean
 }

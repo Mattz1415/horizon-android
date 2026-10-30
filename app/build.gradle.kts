@@ -11,8 +11,8 @@ android {
         applicationId = "dev.playhorizon.launcher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11
-        versionName = "2.5.2-controls-render-fix"
+        versionCode = 12
+        versionName = "2.5.3-full-input-bridge"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
