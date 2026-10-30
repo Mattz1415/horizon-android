@@ -58,17 +58,18 @@
             android:textSize="11sp"
             android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btnSwitchX11"
+        <TextView
+            android:id="@+id/tvEngineBadge"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
+            android:layout_height="36dp"
             android:layout_marginStart="8dp"
             android:paddingHorizontal="14dp"
+            android:gravity="center"
             android:background="@drawable/bg_glass_pill"
-            android:text="SWITCH TO X11"
-            android:textColor="@color/text_primary"
+            android:text="ADRENO 619 • TURNIP"
+            android:textColor="@color/text_secondary"
             android:textSize="11sp"
-            android:textStyle="bold" />
+            android:fontFamily="sans-serif-medium" />
 
         <View
             android:layout_width="0dp"

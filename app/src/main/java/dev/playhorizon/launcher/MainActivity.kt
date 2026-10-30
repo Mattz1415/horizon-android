@@ -135,15 +135,14 @@ class MainActivity : AppCompatActivity() {
                 .setDuration(80)
                 .withEndAction {
                     btnControls.animate().scaleX(1f).scaleY(1f).setDuration(100).start()
-                    LaunchManager.launchHorizon(this, useTouchOverlay = true)
+                    LaunchManager.launchHorizon(this)
                 }
                 .start()
         }
     }
 
     private fun executePlay() {
-        Toast.makeText(this, "Memulai Horizon Engine di GPU Adreno 619...", Toast.LENGTH_SHORT).show()
-        // Jalankan game engine langsung via LaunchManager
-        LaunchManager.launchHorizon(this, useTouchOverlay = false)
+        Toast.makeText(this, "Memulai Horizon Native Game...", Toast.LENGTH_SHORT).show()
+        LaunchManager.launchHorizon(this)
     }
 }
