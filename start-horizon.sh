@@ -6,7 +6,7 @@ cat << "EOF"
   🎮  HORIZON MINECRAFT FOR ANDROID (Termux-X11)  🎮
 ======================================================
   Architecture: ARM64 (aarch64)
-  Renderer:     Vulkan / llvmpipe
+  GPU Driver:   Turnip Mesa (Adreno 619 Hardware Vulkan)
   Window:       1280x720 / Termux:X11 Display :0
 ======================================================
 EOF
@@ -46,18 +46,20 @@ am start --user 0 -n com.termux.x11/com.termux.x11.MainActivity 2>/dev/null || t
 # 6. Tampilkan panduan waktu loading
 echo ""
 echo "======================================================"
-echo " [!] Horizon sedang memuat 35.700+ block states & aset"
-echo " [!] Membutuhkan waktu sekitar 15-25 detik pada CPU"
-echo " [!] Layar Termux-X11 akan otomatis menampilkan menu game!"
+echo " [!] Hardware GPU: Qualcomm Adreno 619 (Turnip Vulkan)"
+echo " [!] Horizon sedang memuat aset Minecraft..."
+echo " [!] Jendela game akan muncul di aplikasi Termux:X11!"
 echo "======================================================"
 echo ""
 
-# 7. Jalankan Horizon di dalam environment Linux Ubuntu
+# 7. Jalankan Horizon dengan Hardware GPU Vulkan (Turnip Adreno 619)
 cd /data/data/com.termux/files/home/horizon
 exec proot-distro login --bind /data/data/com.termux/files/usr/tmp/.X11-unix:/tmp/.X11-unix ubuntu -- bash -c '
     export DISPLAY=:0
     export PULSE_SERVER=127.0.0.1
+    export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/freedreno_icd.aarch64.json
     export MESA_VK_WSI_PRESENT_MODE=immediate
+    export TU_DEBUG=noconform
     cd /data/data/com.termux/files/home/horizon
     exec ./target/fast/horizon-client --resources .local/horizon-client/26.3 "$@"
 ' -- "$@"
