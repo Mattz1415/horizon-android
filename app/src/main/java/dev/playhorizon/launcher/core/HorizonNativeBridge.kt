@@ -52,7 +52,16 @@ object HorizonNativeBridge {
         }
     }
 
+    fun isCursorGrabbed(): Boolean {
+        return try {
+            nativeIsCursorGrabbed()
+        } catch (e: Throwable) {
+            false
+        }
+    }
+
     private external fun nativeSendMouseMotion(deltaX: Float, deltaY: Float)
     private external fun nativeSendCursorPos(x: Float, y: Float)
     private external fun nativeSendMouseButton(button: Int, isPressed: Boolean)
+    private external fun nativeIsCursorGrabbed(): Boolean
 }

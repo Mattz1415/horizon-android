@@ -10,6 +10,8 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.Settings
@@ -36,14 +38,25 @@ class GameActivity : NativeActivity() {
     companion object {
         private const val TAG = "GameActivity"
         private const val STORAGE_PERMISSION_CODE = 1001
+        private const val GRAB_CHECK_INTERVAL_MS = 100L
     }
 
     private lateinit var assetManager: AssetManagerService
     private var vibrator: Vibrator? = null
     private var touchpadView: VirtualTouchpadView? = null
     private var touchControlsPopup: PopupWindow? = null
+    private var overlayRootView: View? = null
 
     private var isGuiVisible = true
+    private var lastGrabbedState: Boolean? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
+
+    private val grabStatePoller = object : Runnable {
+        override fun run() {
+            checkGrabState()
+            mainHandler.postDelayed(this, GRAB_CHECK_INTERVAL_MS)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,6 +93,7 @@ class GameActivity : NativeActivity() {
         try {
             val inflater = LayoutInflater.from(this)
             val overlayView = inflater.inflate(R.layout.activity_game, null)
+            overlayRootView = overlayView
 
             val popup = PopupWindow(
                 overlayView,
@@ -102,13 +116,58 @@ class GameActivity : NativeActivity() {
 
             touchpadView = overlayView.findViewById(R.id.virtualTouchpadView)
 
+            // Initial Menu state: hide gameplay D-pad & action buttons, enable virtual mouse
+            overlayView.findViewById<View>(R.id.leftControlsContainer)?.visibility = View.GONE
+            overlayView.findViewById<View>(R.id.rightControlsContainer)?.visibility = View.GONE
+            touchpadView?.isMouseMode = true
+            overlayView.findViewById<Button>(R.id.btnMouse)?.setBackgroundResource(R.drawable.bg_control_button_active)
+
             setupTopBarControls(overlayView)
             setupMovementControls(overlayView)
             setupActionControls(overlayView)
 
+            // Start grab-state poller to automatically toggle Menu vs In-Game controls
+            mainHandler.removeCallbacks(grabStatePoller)
+            mainHandler.post(grabStatePoller)
+
             Log.i(TAG, "Virtual touch controls and mouse popup attached successfully!")
         } catch (e: Exception) {
             Log.e(TAG, "Error displaying touch controls popup: ${e.message}", e)
+        }
+    }
+
+    private fun checkGrabState() {
+        val isGrabbed = HorizonNativeBridge.isCursorGrabbed()
+        if (lastGrabbedState == null || isGrabbed != lastGrabbedState) {
+            lastGrabbedState = isGrabbed
+            updateControlsForGrabState(isGrabbed)
+        }
+    }
+
+    private fun updateControlsForGrabState(isGrabbed: Boolean) {
+        val overlay = overlayRootView ?: return
+        val leftControls = overlay.findViewById<View>(R.id.leftControlsContainer)
+        val rightControls = overlay.findViewById<View>(R.id.rightControlsContainer)
+        val btnMouse = overlay.findViewById<Button>(R.id.btnMouse)
+
+        if (isGrabbed) {
+            // IN-GAME / PLAYING (Cursor grabbed by engine):
+            // Show gameplay buttons (D-Pad, Jump, Pri, Sec) if GUI overlay is enabled
+            if (isGuiVisible) {
+                leftControls?.visibility = View.VISIBLE
+                rightControls?.visibility = View.VISIBLE
+            }
+            // Switch touchpad to 3D freelook / camera rotation
+            touchpadView?.isMouseMode = false
+            btnMouse?.setBackgroundResource(R.drawable.bg_control_button)
+        } else {
+            // MENU / TITLE SCREEN / INVENTORY (Cursor ungrabbed):
+            // Hide gameplay buttons completely so Minecraft UI buttons are 100% visible and unobstructed
+            leftControls?.visibility = View.GONE
+            rightControls?.visibility = View.GONE
+            // Switch touchpad to virtual mouse pointer (with direct tap-to-click)
+            touchpadView?.isMouseMode = true
+            btnMouse?.setBackgroundResource(R.drawable.bg_control_button_active)
         }
     }
 
@@ -171,12 +230,14 @@ class GameActivity : NativeActivity() {
     }
 
     override fun onDestroy() {
+        mainHandler.removeCallbacksAndMessages(null)
         try {
             if (touchControlsPopup?.isShowing == true) {
                 touchControlsPopup?.dismiss()
             }
         } catch (ignored: Exception) {}
         touchControlsPopup = null
+        overlayRootView = null
         super.onDestroy()
     }
 
@@ -245,16 +306,16 @@ class GameActivity : NativeActivity() {
         btnGui?.setOnClickListener {
             triggerHaptic()
             isGuiVisible = !isGuiVisible
-            val newVisibility = if (isGuiVisible) View.VISIBLE else View.GONE
-            leftControls?.visibility = newVisibility
-            rightControls?.visibility = newVisibility
+            val shouldShowGameControls = isGuiVisible && (lastGrabbedState == true)
+            leftControls?.visibility = if (shouldShowGameControls) View.VISIBLE else View.GONE
+            rightControls?.visibility = if (shouldShowGameControls) View.VISIBLE else View.GONE
 
             // Hide other buttons on top bar, keep only GUI button
             topBar?.let { bar ->
                 for (i in 0 until bar.childCount) {
                     val child = bar.getChildAt(i)
                     if (child.id != R.id.btnGui) {
-                        child.visibility = newVisibility
+                        child.visibility = if (isGuiVisible) View.VISIBLE else View.GONE
                     }
                 }
             }

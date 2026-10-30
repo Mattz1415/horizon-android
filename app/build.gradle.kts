@@ -11,8 +11,8 @@ android {
         applicationId = "dev.playhorizon.launcher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 10
-        versionName = "2.5.1-popup-controls-fix"
+        versionCode = 11
+        versionName = "2.5.2-controls-render-fix"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

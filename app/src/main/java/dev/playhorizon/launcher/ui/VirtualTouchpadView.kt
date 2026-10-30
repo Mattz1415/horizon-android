@@ -62,6 +62,8 @@ class VirtualTouchpadView @JvmOverloads constructor(
     var mouseY: Float = 0f
         private set
 
+    // Multi-touch Pointer ID tracking (Pojav / Zalith PointerTracker pattern)
+    private var trackedPointerId = MotionEvent.INVALID_POINTER_ID
     private var startTouchX = 0f
     private var startTouchY = 0f
     private var lastTouchX = 0f
@@ -129,27 +131,57 @@ class VirtualTouchpadView @JvmOverloads constructor(
     fun handleTouchEvent(event: MotionEvent): Boolean {
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
-                startTouchX = event.x
-                startTouchY = event.y
-                lastTouchX = event.x
-                lastTouchY = event.y
+                val pointerIndex = 0
+                trackedPointerId = event.getPointerId(pointerIndex)
+                startTouchX = event.getX(pointerIndex)
+                startTouchY = event.getY(pointerIndex)
+                lastTouchX = startTouchX
+                lastTouchY = startTouchY
                 touchStartTime = System.currentTimeMillis()
                 isDragging = false
                 return true
             }
 
-            MotionEvent.ACTION_MOVE -> {
-                val deltaX = event.x - lastTouchX
-                val deltaY = event.y - lastTouchY
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                // If we don't have an active tracking pointer or if a new finger touches
+                if (trackedPointerId == MotionEvent.INVALID_POINTER_ID) {
+                    val pointerIndex = event.actionIndex
+                    trackedPointerId = event.getPointerId(pointerIndex)
+                    startTouchX = event.getX(pointerIndex)
+                    startTouchY = event.getY(pointerIndex)
+                    lastTouchX = startTouchX
+                    lastTouchY = startTouchY
+                    touchStartTime = System.currentTimeMillis()
+                    isDragging = false
+                }
+                return true
+            }
 
-                val distFromStart = hypot((event.x - startTouchX).toDouble(), (event.y - startTouchY).toDouble())
+            MotionEvent.ACTION_MOVE -> {
+                val pointerIndex = event.findPointerIndex(trackedPointerId)
+                if (pointerIndex == -1) {
+                    // Fall back to first pointer if tracked pointer is lost
+                    val fallbackIndex = 0
+                    trackedPointerId = event.getPointerId(fallbackIndex)
+                    lastTouchX = event.getX(fallbackIndex)
+                    lastTouchY = event.getY(fallbackIndex)
+                    return true
+                }
+
+                val curX = event.getX(pointerIndex)
+                val curY = event.getY(pointerIndex)
+                val deltaX = curX - lastTouchX
+                val deltaY = curY - lastTouchY
+
+                val distFromStart = hypot((curX - startTouchX).toDouble(), (curY - startTouchY).toDouble())
                 if (distFromStart > 4 * density) {
                     isDragging = true
                 }
 
+                val w = if (width > 0) width.toFloat() else resources.displayMetrics.widthPixels.toFloat()
+                val h = if (height > 0) height.toFloat() else resources.displayMetrics.heightPixels.toFloat()
+
                 if (isMouseMode) {
-                    val w = if (width > 0) width.toFloat() else resources.displayMetrics.widthPixels.toFloat()
-                    val h = if (height > 0) height.toFloat() else resources.displayMetrics.heightPixels.toFloat()
                     mouseX = max(0f, min(w, mouseX + deltaX * mouseSpeed))
                     mouseY = max(0f, min(h, mouseY + deltaY * mouseSpeed))
                     HorizonNativeBridge.safeSendCursorPos(mouseX, mouseY)
@@ -158,24 +190,48 @@ class VirtualTouchpadView @JvmOverloads constructor(
                     HorizonNativeBridge.safeSendMouseMotion(deltaX * 1.5f, deltaY * 1.5f)
                 }
 
-                lastTouchX = event.x
-                lastTouchY = event.y
+                lastTouchX = curX
+                lastTouchY = curY
+                return true
+            }
+
+            MotionEvent.ACTION_POINTER_UP -> {
+                val pointerIndex = event.actionIndex
+                if (event.getPointerId(pointerIndex) == trackedPointerId) {
+                    // Active pointer lifted; switch to another active pointer if available
+                    trackedPointerId = MotionEvent.INVALID_POINTER_ID
+                    val newIndex = if (pointerIndex == 0) 1 else 0
+                    if (newIndex < event.pointerCount) {
+                        trackedPointerId = event.getPointerId(newIndex)
+                        lastTouchX = event.getX(newIndex)
+                        lastTouchY = event.getY(newIndex)
+                    }
+                }
                 return true
             }
 
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 val duration = System.currentTimeMillis() - touchStartTime
-                val totalDist = hypot((event.x - startTouchX).toDouble(), (event.y - startTouchY).toDouble())
+                val totalDist = hypot((lastTouchX - startTouchX).toDouble(), (lastTouchY - startTouchY).toDouble())
 
-                if (!isDragging && duration < 280 && totalDist < 12 * density) {
+                if (!isDragging && duration < 280 && totalDist < 14 * density) {
                     if (isMouseMode) {
                         triggerHaptic()
+                        // Move cursor to tap position for instant direct-touch, then click
+                        val w = if (width > 0) width.toFloat() else resources.displayMetrics.widthPixels.toFloat()
+                        val h = if (height > 0) height.toFloat() else resources.displayMetrics.heightPixels.toFloat()
+                        mouseX = max(0f, min(w, startTouchX))
+                        mouseY = max(0f, min(h, startTouchY))
+                        HorizonNativeBridge.safeSendCursorPos(mouseX, mouseY)
+                        invalidate()
+
                         HorizonNativeBridge.safeSendMouseButton(HorizonNativeBridge.MOUSE_LEFT, true)
                         postDelayed({
                             HorizonNativeBridge.safeSendMouseButton(HorizonNativeBridge.MOUSE_LEFT, false)
                         }, 50)
                     }
                 }
+                trackedPointerId = MotionEvent.INVALID_POINTER_ID
                 isDragging = false
                 return true
             }
