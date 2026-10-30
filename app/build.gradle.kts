@@ -11,8 +11,8 @@ android {
         applicationId = "dev.playhorizon.launcher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 6
-        versionName = "2.2.0-direct-native"
+        versionCode = 7
+        versionName = "2.3.0-native-inapp-controls"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

@@ -42,16 +42,15 @@ proot-distro login --bind /data/data/com.termux/files/usr/tmp/.X11-unix:/tmp/.X1
     fi
 ' 2>/dev/null || true
 
-# 5. Buka aplikasi Termux:X11 ke layar depan Android
-echo "[*] Membuka jendela Termux:X11 di layar Android..."
-am start --user 0 -n com.termux.x11/com.termux.x11.MainActivity 2>/dev/null || true
+# 5. Background engine ready (Native In-App Display & Controls)
+# Do NOT launch Termux-X11 app! Display is handled natively inside Horizon APK.
 
 # 6. Tampilkan panduan waktu loading
 echo ""
 echo "======================================================"
 echo " [!] Hardware GPU: Qualcomm Adreno 619 (Turnip Vulkan)"
 echo " [!] Horizon sedang memuat aset Minecraft..."
-echo " [!] Jendela game akan muncul di aplikasi Termux:X11!"
+echo " [!] Jendela game & kontrol virtual aktif di Horizon APK!"
 echo "======================================================"
 echo ""
 

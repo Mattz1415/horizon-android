@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.util.Log
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -94,16 +95,28 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun bindKeyButton(button: Button?, keyCode: Int) {
+    private fun bindKeyButton(button: Button?, keyCode: Int, androidKeyCode: Int = 0) {
         button?.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     triggerHaptic()
                     HorizonNativeBridge.safeSendKeyEvent(keyCode, true)
+                    if (androidKeyCode != 0) {
+                        try {
+                            val time = System.currentTimeMillis()
+                            dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, androidKeyCode, 0))
+                        } catch (ignored: Exception) {}
+                    }
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     HorizonNativeBridge.safeSendKeyEvent(keyCode, false)
+                    if (androidKeyCode != 0) {
+                        try {
+                            val time = System.currentTimeMillis()
+                            dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_UP, androidKeyCode, 0))
+                        } catch (ignored: Exception) {}
+                    }
                     true
                 }
                 else -> false
@@ -130,24 +143,23 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
     }
 
     private fun setupTouchControls() {
-        // D-Pad Movement
-        bindKeyButton(findViewById(R.id.btnUp), HorizonNativeBridge.KEY_W)
-        bindKeyButton(findViewById(R.id.btnLeft), HorizonNativeBridge.KEY_A)
-        bindKeyButton(findViewById(R.id.btnDown), HorizonNativeBridge.KEY_S)
-        bindKeyButton(findViewById(R.id.btnRight), HorizonNativeBridge.KEY_D)
-        bindKeyButton(findViewById(R.id.btnSneak), HorizonNativeBridge.KEY_SHIFT)
+        // D-Pad Movement (W, A, S, D + Sneak/Shift)
+        bindKeyButton(findViewById(R.id.btnUp), HorizonNativeBridge.KEY_W, KeyEvent.KEYCODE_W)
+        bindKeyButton(findViewById(R.id.btnLeft), HorizonNativeBridge.KEY_A, KeyEvent.KEYCODE_A)
+        bindKeyButton(findViewById(R.id.btnDown), HorizonNativeBridge.KEY_S, KeyEvent.KEYCODE_S)
+        bindKeyButton(findViewById(R.id.btnRight), HorizonNativeBridge.KEY_D, KeyEvent.KEYCODE_D)
+        bindKeyButton(findViewById(R.id.btnSneak), HorizonNativeBridge.KEY_SHIFT, KeyEvent.KEYCODE_SHIFT_LEFT)
 
-        // Action Buttons
-        bindKeyButton(findViewById(R.id.btnJump), HorizonNativeBridge.KEY_SPACE)
+        // Action Buttons (Jump, Attack/Break, Place/Use)
+        bindKeyButton(findViewById(R.id.btnJump), HorizonNativeBridge.KEY_SPACE, KeyEvent.KEYCODE_SPACE)
         bindMouseButton(findViewById(R.id.btnAttack), HorizonNativeBridge.MOUSE_LEFT)
         bindMouseButton(findViewById(R.id.btnPlace), HorizonNativeBridge.MOUSE_RIGHT)
 
-        // Top Utility Buttons
-        bindKeyButton(findViewById(R.id.btnEsc), HorizonNativeBridge.KEY_ESC)
-        bindKeyButton(findViewById(R.id.btnF3), HorizonNativeBridge.KEY_F3)
-        bindKeyButton(findViewById(R.id.btnChat), HorizonNativeBridge.KEY_T)
-        bindKeyButton(findViewById(R.id.btnInv), HorizonNativeBridge.KEY_E)
-
+        // Top Utility Buttons (ESC, F3, CHAT, INV)
+        bindKeyButton(findViewById(R.id.btnEsc), HorizonNativeBridge.KEY_ESC, KeyEvent.KEYCODE_ESCAPE)
+        bindKeyButton(findViewById(R.id.btnF3), HorizonNativeBridge.KEY_F3, KeyEvent.KEYCODE_F3)
+        bindKeyButton(findViewById(R.id.btnChat), HorizonNativeBridge.KEY_T, KeyEvent.KEYCODE_T)
+        bindKeyButton(findViewById(R.id.btnInv), HorizonNativeBridge.KEY_E, KeyEvent.KEYCODE_E)
     }
 
     @SuppressLint("ClickableViewAccessibility")
