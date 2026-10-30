@@ -1,31 +1,32 @@
-# Horizon Android
+# Horizon Android (Rust Edition)
 
-Port Android untuk [Horizon](https://playhorizon.dev), client Minecraft Java 26.3 berbasis Rust dan Vulkan.
+Port native Android untuk [Horizon](https://playhorizon.dev), engine Minecraft Java 26.3 berbasis Rust & Vulkan.
 
 ## Fitur
 
-* Client native Rust (`wgpu`), tanpa runtime Java di HP.
-* Kontrol sentuh di layar: analog joystick, tombol D-pad, aksi serang, pasang blok, lompat, dan jongkok.
-* Suara game langsung lewat backend AAudio / CPAL.
-* Downloader bawaan: tarik paket aset via CDN langsung di dalam aplikasi atau import file `.zip` manual dari storage.
-* Proteksi galeri HP: folder aset otomatis diberi file `.nomedia` supaya file suara dan tekstur tidak terbaca di galeri foto.
-* Service wakelock aktif saat download dan main agar proses tidak dimatikan Android di background.
+- **Engine:** Rust native (`wgpu` Vulkan), tanpa JVM overhead.
+- **Kontrol Layar:** Virtual Joystick & D-Pad (Attack, Place, Jump, Sneak).
+- **Audio:** AAudio / CPAL stereo output.
+- **Launcher:** Liquid Glass UI, dual downloader (CDN otomatis & import .zip offline).
+- **Proteksi Media:** File aset otomatis disembunyikan dari galeri HP (`.nomedia`).
+- **Background Pinning:** Service wakelock agar download dan game tidak ditutup paksa Android.
 
-## Pemasangan
+## Download & Pasang
 
-1. Unduh APK dari halaman [Releases](https://github.com/Mattz1415/horizon-android/releases).
-2. Buka aplikasi, lalu buka tab Downloader.
-3. Pilih salah satu cara pasang aset:
-   * **Otomatis:** Tekan tombol unduh CDN.
-   * **Manual:** Unduh `horizon-resources-26.3.zip` lewat browser, lalu pilih file lewat tombol import.
-4. Tekan tombol Play setelah status aset siap.
+1. Unduh APK dari [Releases](https://github.com/Mattz1415/horizon-android/releases/latest).
+2. Pasang di HP Android (Android 9+).
+3. Buka aplikasi, masuk tab **Downloader**:
+   - **Otomatis:** Klik **UNDUH OTOMATIS (CDN)**.
+   - **Manual:** Unduh `horizon-resources-26.3.zip` via browser, lalu klik **IMPORT FILE .ZIP (SAF)**.
+4. Klik **PLAY 26.3**.
 
-## Catatan Perangkat (Realme 10 Pro 5G / Snapdragon 695)
+## Rekomendasi Pengaturan (Snapdragon 695 / Realme 10 Pro 5G)
 
-* RAM: 2560 MB
-* Threads: 4
-* Render API: Vulkan
+- **RAM:** 2560 MB
+- **Threads:** 4
+- **Backend:** Vulkan
+- **Render Distance:** 8–10 chunks
 
 ## Lisensi
 
-GPL-3.0 / MIT. Aset Minecraft tetap milik Mojang dan Microsoft.
+GPL-3.0 / MIT upstream. Aset Minecraft milik Mojang / Microsoft.
