@@ -7,10 +7,12 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import okhttp3.ConnectionPool
+import okhttp3.Dns
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
 import java.io.*
+import java.net.InetAddress
 import java.net.HttpURLConnection
 import java.net.URL
 import java.security.MessageDigest
@@ -19,12 +21,47 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 
+class ResilientDns : Dns {
+    override fun lookup(hostname: String): List<InetAddress> {
+        try {
+            val res = Dns.SYSTEM.lookup(hostname)
+            if (res.isNotEmpty()) return res
+        } catch (_: Exception) {}
+
+        return try {
+            when (hostname) {
+                "github.com" -> listOf(
+                    InetAddress.getByAddress(hostname, byteArrayOf(20.toByte(), 205.toByte(), 243.toByte(), 166.toByte())),
+                    InetAddress.getByAddress(hostname, byteArrayOf(140.toByte(), 82.toByte(), 113.toByte(), 4.toByte()))
+                )
+                "release-assets.githubusercontent.com", "objects.githubusercontent.com" -> listOf(
+                    InetAddress.getByAddress(hostname, byteArrayOf(185.toByte(), 199.toByte(), 108.toByte(), 133.toByte())),
+                    InetAddress.getByAddress(hostname, byteArrayOf(185.toByte(), 199.toByte(), 109.toByte(), 133.toByte())),
+                    InetAddress.getByAddress(hostname, byteArrayOf(185.toByte(), 199.toByte(), 110.toByte(), 133.toByte())),
+                    InetAddress.getByAddress(hostname, byteArrayOf(185.toByte(), 199.toByte(), 111.toByte(), 133.toByte()))
+                )
+                "piston-meta.mojang.com", "piston-data.mojang.com", "resources.download.minecraft.net" -> listOf(
+                    InetAddress.getByAddress(hostname, byteArrayOf(13.toByte(), 107.toByte(), 246.toByte(), 71.toByte())),
+                    InetAddress.getByAddress(hostname, byteArrayOf(13.toByte(), 107.toByte(), 213.toByte(), 71.toByte()))
+                )
+                else -> Dns.SYSTEM.lookup(hostname)
+            }
+        } catch (_: Exception) {
+            Dns.SYSTEM.lookup(hostname)
+        }
+    }
+}
+
 class ResourceDownloader(private val context: Context) {
 
     companion object {
         private const val TAG = "ResourceDownloader"
         const val VERSION = "26.3"
-        const val FAST_BUNDLE_URL = "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.4/horizon-resources-26.3.zip"
+        val FAST_BUNDLE_URLS = listOf(
+            "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.6/horizon-resources-26.3.zip",
+            "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.5/horizon-resources-26.3.zip",
+            "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.4/horizon-resources-26.3.zip"
+        )
         private const val MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
     }
 
@@ -35,11 +72,14 @@ class ResourceDownloader(private val context: Context) {
     }
 
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
+        .dns(ResilientDns())
         .connectionPool(ConnectionPool(16, 10, TimeUnit.MINUTES))
         .connectTimeout(60, TimeUnit.SECONDS)
         .readTimeout(180, TimeUnit.SECONDS)
         .writeTimeout(60, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
+        .followRedirects(true)
+        .followSslRedirects(true)
         .build()
 
     private val powerManager = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
@@ -132,10 +172,11 @@ class ResourceDownloader(private val context: Context) {
 
             while (attempt < maxRetries && !success) {
                 attempt++
+                val activeUrl = FAST_BUNDLE_URLS[(attempt - 1) % FAST_BUNDLE_URLS.size]
                 try {
                     val reqBuilder = Request.Builder()
-                        .url(FAST_BUNDLE_URL)
-                        .header("User-Agent", "HorizonLauncher-Android/2.7.5")
+                        .url(activeUrl)
+                        .header("User-Agent", "HorizonLauncher-Android/2.7.6")
 
                     if (downloaded > 0L) {
                         reqBuilder.header("Range", "bytes=$downloaded-")
@@ -287,157 +328,162 @@ class ResourceDownloader(private val context: Context) {
         }
 
         // 3. Fallback: Fetch Mojang Version Manifest
-        listener.onProgress("Fallback Mojang", 0.04, 0, "Mengalihkan ke pipeline unduhan Mojang...")
-        val manifestJsonStr = fetchString(MANIFEST_URL)
-        val manifestObj = JSONObject(manifestJsonStr)
-        val versionsArr = manifestObj.getJSONArray("versions")
+        try {
+            listener.onProgress("Fallback Mojang", 0.04, 0, "Mengalihkan ke pipeline unduhan Mojang...")
+            val manifestJsonStr = fetchString(MANIFEST_URL)
+            val manifestObj = JSONObject(manifestJsonStr)
+            val versionsArr = manifestObj.getJSONArray("versions")
 
-        var v26_3_Url: String? = null
-        for (i in 0 until versionsArr.length()) {
-            val v = versionsArr.getJSONObject(i)
-            if (v.getString("id") == VERSION) {
-                v26_3_Url = v.getString("url")
-                break
-            }
-        }
-
-        if (v26_3_Url == null) {
-            val latest = manifestObj.getJSONObject("latest")
-            val targetId = latest.optString("snapshot", latest.optString("release", "1.21.4"))
+            var v26_3_Url: String? = null
             for (i in 0 until versionsArr.length()) {
                 val v = versionsArr.getJSONObject(i)
-                if (v.getString("id") == targetId) {
+                if (v.getString("id") == VERSION) {
                     v26_3_Url = v.getString("url")
                     break
                 }
             }
-        }
 
-        requireNotNull(v26_3_Url) { "Metadata versi $VERSION tidak ditemukan di manifest Mojang" }
-
-        // 3. Parse 26.3 Version JSON
-        listener.onProgress("Manifest", 0.08, 0, "Memvalidasi paket versi $VERSION...")
-        val versionJsonStr = fetchString(v26_3_Url)
-        val versionObj = JSONObject(versionJsonStr)
-
-        // 4. Download & Extract client.jar
-        listener.onProgress("Client JAR", 0.12, 0, "Mengunduh Minecraft client.jar...")
-        val clientDownload = versionObj.getJSONObject("downloads").getJSONObject("client")
-        val clientUrl = clientDownload.getString("url")
-        val clientSize = clientDownload.optLong("size", 0L)
-        val tempJar = File(context.cacheDir, "client_temp_$VERSION.jar")
-
-        downloadFileWithProgress(clientUrl, tempJar, clientSize) { downloaded, total, speed ->
-            val prog = 0.12 + (0.24 * (downloaded.toDouble() / total.toDouble()))
-            val mbDown = downloaded / (1024 * 1024)
-            val mbTot = total / (1024 * 1024)
-            listener.onProgress("Client JAR", prog, speed, "Mengunduh client.jar ($mbDown / $mbTot MB)")
-        }
-
-        listener.onProgress("Ekstraksi", 0.36, 0, "Mengekstrak textures, models, & lang (Zip-Slip guard)...")
-        extractJarAssetsAndData(tempJar, stagingDir)
-        tempJar.delete()
-
-        // 5. Download Asset Index and ALL Objects (No skip, with HTTP/2 pooling & Semaphore)
-        listener.onProgress("Asset Index", 0.40, 0, "Membaca Mojang Asset Index...")
-        val assetIndexInfo = versionObj.getJSONObject("assetIndex")
-        val assetIndexUrl = assetIndexInfo.getString("url")
-        val assetIndexJson = fetchString(assetIndexUrl)
-        val assetIndexObj = JSONObject(assetIndexJson)
-        val objectsObj = assetIndexObj.getJSONObject("objects")
-
-        val indexesDir = File(stagingDir, "assets/indexes")
-        indexesDir.mkdirs()
-        File(indexesDir, "${assetIndexInfo.getString("id")}.json").writeText(assetIndexJson)
-        File(stagingDir, "asset-index.json").writeText(assetIndexJson)
-
-        val assetKeys = objectsObj.keys()
-        val allAssets = mutableListOf<Pair<String, String>>() // (key, hash)
-        while (assetKeys.hasNext()) {
-            val key = assetKeys.next()
-            val hash = objectsObj.getJSONObject(key).getString("hash")
-            allAssets.add(Pair(key, hash))
-        }
-
-        val totalAssets = allAssets.size
-        listener.onProgress("Assets", 0.42, 0, "Memulai unduhan $totalAssets aset (audio, font, icons)...")
-
-        val objectsDir = File(stagingDir, "assets/objects")
-        objectsDir.mkdirs()
-        shieldFromGallery(objectsDir)
-
-        val semaphore = Semaphore(16)
-        val completedCount = AtomicInteger(0)
-        val startTime = System.currentTimeMillis()
-        var totalBytesDownloaded = 0L
-
-        coroutineScope {
-            val jobs = allAssets.map { (key, hash) ->
-                launch {
-                    semaphore.withPermit {
-                        val prefix = hash.substring(0, 2)
-                        val fileDir = File(objectsDir, prefix)
-                        if (!fileDir.exists()) fileDir.mkdirs()
-
-                        val targetFile = File(fileDir, hash)
-                        if (!targetFile.exists() || targetFile.length() == 0L) {
-                            val urlStr = "https://resources.download.minecraft.net/$prefix/$hash"
-                            val partFile = File(fileDir, "$hash.part")
-                            downloadUrlToFile(urlStr, partFile)
-                            partFile.renameTo(targetFile)
-                            synchronized(this@ResourceDownloader) {
-                                totalBytesDownloaded += targetFile.length()
-                            }
-                        }
-
-                        if (key.startsWith("minecraft/lang/")) {
-                            val langName = key.removePrefix("minecraft/lang/")
-                            val langDest = File(stagingDir, "assets/minecraft/lang/$langName")
-                            langDest.parentFile?.mkdirs()
-                            targetFile.copyTo(langDest, overwrite = true)
-                        }
-
-                        val cur = completedCount.incrementAndGet()
-                        if (cur % 25 == 0 || cur == totalAssets) {
-                            val elapsedSec = ((System.currentTimeMillis() - startTime) / 1000).coerceAtLeast(1)
-                            val speed = totalBytesDownloaded / elapsedSec
-                            val prog = 0.42 + (0.46 * (cur.toDouble() / totalAssets.toDouble()))
-                            listener.onProgress("Assets", prog, speed, "Mengunduh assets ($cur / $totalAssets)")
-                        }
+            if (v26_3_Url == null) {
+                val latest = manifestObj.getJSONObject("latest")
+                val targetId = latest.optString("snapshot", latest.optString("release", "1.21.4"))
+                for (i in 0 until versionsArr.length()) {
+                    val v = versionsArr.getJSONObject(i)
+                    if (v.getString("id") == targetId) {
+                        v26_3_Url = v.getString("url")
+                        break
                     }
                 }
             }
-            jobs.joinAll()
+
+            requireNotNull(v26_3_Url) { "Metadata versi $VERSION tidak ditemukan di manifest Mojang" }
+
+            // 3. Parse 26.3 Version JSON
+            listener.onProgress("Manifest", 0.08, 0, "Memvalidasi paket versi $VERSION...")
+            val versionJsonStr = fetchString(v26_3_Url)
+            val versionObj = JSONObject(versionJsonStr)
+
+            // 4. Download & Extract client.jar
+            listener.onProgress("Client JAR", 0.12, 0, "Mengunduh Minecraft client.jar...")
+            val clientDownload = versionObj.getJSONObject("downloads").getJSONObject("client")
+            val clientUrl = clientDownload.getString("url")
+            val clientSize = clientDownload.optLong("size", 0L)
+            val tempJar = File(context.cacheDir, "client_temp_$VERSION.jar")
+
+            downloadFileWithProgress(clientUrl, tempJar, clientSize) { downloaded, total, speed ->
+                val prog = 0.12 + (0.24 * (downloaded.toDouble() / total.toDouble()))
+                val mbDown = downloaded / (1024 * 1024)
+                val mbTot = total / (1024 * 1024)
+                listener.onProgress("Client JAR", prog, speed, "Mengunduh client.jar ($mbDown / $mbTot MB)")
+            }
+
+            listener.onProgress("Ekstraksi", 0.36, 0, "Mengekstrak textures, models, & lang (Zip-Slip guard)...")
+            extractJarAssetsAndData(tempJar, stagingDir)
+            tempJar.delete()
+
+            // 5. Download Asset Index and ALL Objects (No skip, with HTTP/2 pooling & Semaphore)
+            listener.onProgress("Asset Index", 0.40, 0, "Membaca Mojang Asset Index...")
+            val assetIndexInfo = versionObj.getJSONObject("assetIndex")
+            val assetIndexUrl = assetIndexInfo.getString("url")
+            val assetIndexJson = fetchString(assetIndexUrl)
+            val assetIndexObj = JSONObject(assetIndexJson)
+            val objectsObj = assetIndexObj.getJSONObject("objects")
+
+            val indexesDir = File(stagingDir, "assets/indexes")
+            indexesDir.mkdirs()
+            File(indexesDir, "${assetIndexInfo.getString("id")}.json").writeText(assetIndexJson)
+            File(stagingDir, "asset-index.json").writeText(assetIndexJson)
+
+            val assetKeys = objectsObj.keys()
+            val allAssets = mutableListOf<Pair<String, String>>() // (key, hash)
+            while (assetKeys.hasNext()) {
+                val key = assetKeys.next()
+                val hash = objectsObj.getJSONObject(key).getString("hash")
+                allAssets.add(Pair(key, hash))
+            }
+
+            val totalAssets = allAssets.size
+            listener.onProgress("Assets", 0.42, 0, "Memulai unduhan $totalAssets aset (audio, font, icons)...")
+
+            val objectsDir = File(stagingDir, "assets/objects")
+            objectsDir.mkdirs()
+            shieldFromGallery(objectsDir)
+
+            val semaphore = Semaphore(16)
+            val completedCount = AtomicInteger(0)
+            val startTime = System.currentTimeMillis()
+            var totalBytesDownloaded = 0L
+
+            coroutineScope {
+                val jobs = allAssets.map { (key, hash) ->
+                    launch {
+                        semaphore.withPermit {
+                            val prefix = hash.substring(0, 2)
+                            val fileDir = File(objectsDir, prefix)
+                            if (!fileDir.exists()) fileDir.mkdirs()
+
+                            val targetFile = File(fileDir, hash)
+                            if (!targetFile.exists() || targetFile.length() == 0L) {
+                                val urlStr = "https://resources.download.minecraft.net/$prefix/$hash"
+                                val partFile = File(fileDir, "$hash.part")
+                                downloadUrlToFile(urlStr, partFile)
+                                partFile.renameTo(targetFile)
+                                synchronized(this@ResourceDownloader) {
+                                    totalBytesDownloaded += targetFile.length()
+                                }
+                            }
+
+                            if (key.startsWith("minecraft/lang/")) {
+                                val langName = key.removePrefix("minecraft/lang/")
+                                val langDest = File(stagingDir, "assets/minecraft/lang/$langName")
+                                langDest.parentFile?.mkdirs()
+                                targetFile.copyTo(langDest, overwrite = true)
+                            }
+
+                            val cur = completedCount.incrementAndGet()
+                            if (cur % 25 == 0 || cur == totalAssets) {
+                                val elapsedSec = ((System.currentTimeMillis() - startTime) / 1000).coerceAtLeast(1)
+                                val speed = totalBytesDownloaded / elapsedSec
+                                val prog = 0.42 + (0.46 * (cur.toDouble() / totalAssets.toDouble()))
+                                listener.onProgress("Assets", prog, speed, "Mengunduh assets ($cur / $totalAssets)")
+                            }
+                        }
+                    }
+                }
+                jobs.joinAll()
+            }
+
+            // 6. Extract Pre-computed Tables or Fallback
+            listener.onProgress("World Tables", 0.90, 0, "Mengekstrak tabel registries, facts, & worldgen...")
+            extractBundledOrFallbackFacts(stagingDir)
+
+            // 7. Final Verification & Atomic Swap to BOTH targets
+            listener.onProgress("Verifikasi", 0.96, 0, "Menghitung SHA-256 dan melakukan atomic swap...")
+            shieldFromGallery(stagingDir)
+
+            val sha256 = computeDirHash(stagingDir)
+            File(stagingDir, ".prepared_sha256").writeText(sha256)
+            File(stagingDir, "android-downloads-v2.json").writeText("{\"schema\":2}")
+
+            // Target 1: filesDir/resources/26.3
+            if (targetDir.exists()) targetDir.deleteRecursively()
+            targetDir.mkdirs()
+            copyDirectory(stagingDir, targetDir)
+            shieldFromGallery(targetDir)
+
+            // Target 2: filesDir/.local/horizon-client/26.3
+            if (localTargetDir.exists()) localTargetDir.deleteRecursively()
+            localTargetDir.mkdirs()
+            copyDirectory(stagingDir, localTargetDir)
+            shieldFromGallery(localTargetDir)
+
+            stagingDir.deleteRecursively()
+
+            listener.onProgress("Selesai", 1.0, 0, "Resources 26.3 berhasil disiapkan dan siap dimainkan!")
+            listener.onComplete(targetDir.absolutePath, sha256)
+        } catch (e: Exception) {
+            Log.e(TAG, "Mojang pipeline failure: ${e.message}", e)
+            listener.onError("Gagal unduh dari server: ${e.message ?: "Koneksi terputus"}. Silakan gunakan tombol IMPORT FILE .ZIP (SAF) untuk memasang file aset secara manual.")
         }
-
-        // 6. Extract Pre-computed Tables or Fallback
-        listener.onProgress("World Tables", 0.90, 0, "Mengekstrak tabel registries, facts, & worldgen...")
-        extractBundledOrFallbackFacts(stagingDir)
-
-        // 7. Final Verification & Atomic Swap to BOTH targets
-        listener.onProgress("Verifikasi", 0.96, 0, "Menghitung SHA-256 dan melakukan atomic swap...")
-        shieldFromGallery(stagingDir)
-
-        val sha256 = computeDirHash(stagingDir)
-        File(stagingDir, ".prepared_sha256").writeText(sha256)
-        File(stagingDir, "android-downloads-v2.json").writeText("{\"schema\":2}")
-
-        // Target 1: filesDir/resources/26.3
-        if (targetDir.exists()) targetDir.deleteRecursively()
-        targetDir.mkdirs()
-        copyDirectory(stagingDir, targetDir)
-        shieldFromGallery(targetDir)
-
-        // Target 2: filesDir/.local/horizon-client/26.3
-        if (localTargetDir.exists()) localTargetDir.deleteRecursively()
-        localTargetDir.mkdirs()
-        copyDirectory(stagingDir, localTargetDir)
-        shieldFromGallery(localTargetDir)
-
-        stagingDir.deleteRecursively()
-
-        listener.onProgress("Selesai", 1.0, 0, "Resources 26.3 berhasil disiapkan dan siap dimainkan!")
-        listener.onComplete(targetDir.absolutePath, sha256)
     }
 
     fun importPreparedZip(zipUri: Uri, listener: ProgressListener) {
