@@ -78,9 +78,18 @@ class HorizonGameActivity : NativeActivity() {
     private var imeProxyEditText: EditText? = null
     private var isImeUpdating = false
 
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         currentInstance = this
+
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        val pm = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+        wakeLock = pm?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "horizon:game_active_wakelock")?.apply {
+            setReferenceCounted(false)
+            acquire(4 * 60 * 60 * 1000L) // Pin CPU wake for up to 4 hours of gameplay
+        }
 
         GameService.start(this)
 
@@ -228,6 +237,11 @@ class HorizonGameActivity : NativeActivity() {
     }
 
     override fun onDestroy() {
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (_: Exception) {}
         super.onDestroy()
         currentInstance = null
         GameService.stop(this)

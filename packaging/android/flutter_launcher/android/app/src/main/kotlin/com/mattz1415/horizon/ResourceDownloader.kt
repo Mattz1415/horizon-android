@@ -35,11 +35,37 @@ class ResourceDownloader(private val context: Context) {
     }
 
     private val httpClient: OkHttpClient = OkHttpClient.Builder()
-        .connectionPool(ConnectionPool(16, 5, TimeUnit.MINUTES))
-        .connectTimeout(20, TimeUnit.SECONDS)
-        .readTimeout(45, TimeUnit.SECONDS)
+        .connectionPool(ConnectionPool(16, 10, TimeUnit.MINUTES))
+        .connectTimeout(60, TimeUnit.SECONDS)
+        .readTimeout(180, TimeUnit.SECONDS)
+        .writeTimeout(60, TimeUnit.SECONDS)
         .retryOnConnectionFailure(true)
         .build()
+
+    private val powerManager = context.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
+    private var downloadWakeLock: android.os.PowerManager.WakeLock? = null
+
+    private fun acquireWakeLock() {
+        try {
+            if (downloadWakeLock == null) {
+                downloadWakeLock = powerManager?.newWakeLock(
+                    android.os.PowerManager.PARTIAL_WAKE_LOCK,
+                    "horizon:downloader_wakelock"
+                )?.apply {
+                    setReferenceCounted(false)
+                }
+            }
+            downloadWakeLock?.acquire(60 * 60 * 1000L) // 1 hour max
+        } catch (_: Exception) {}
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            if (downloadWakeLock?.isHeld == true) {
+                downloadWakeLock?.release()
+            }
+        } catch (_: Exception) {}
+    }
 
     private var activeJob: Job? = null
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -71,6 +97,7 @@ class ResourceDownloader(private val context: Context) {
     fun startDownload(listener: ProgressListener) {
         activeJob?.cancel()
         activeJob = scope.launch(Dispatchers.IO) {
+            acquireWakeLock()
             try {
                 performDownload(listener)
             } catch (ce: CancellationException) {
@@ -78,6 +105,8 @@ class ResourceDownloader(private val context: Context) {
             } catch (e: Exception) {
                 Log.e(TAG, "Download error: ${e.message}", e)
                 listener.onError("Gagal: ${e.message ?: "Koneksi terputus"}")
+            } finally {
+                releaseWakeLock()
             }
         }
     }
@@ -85,6 +114,7 @@ class ResourceDownloader(private val context: Context) {
     fun pauseDownload() {
         activeJob?.cancel()
         activeJob = null
+        releaseWakeLock()
     }
 
     private suspend fun tryDownloadFastBundle(listener: ProgressListener): Boolean = withContext(Dispatchers.IO) {
@@ -92,40 +122,88 @@ class ResourceDownloader(private val context: Context) {
         try {
             listener.onProgress("Fast CDN", 0.04, 0, "Menghubungkan ke CDN aset lengkap 26.3...")
             tempZip = File(context.cacheDir, "horizon_resources_bundle.zip")
-            if (tempZip.exists()) tempZip.delete()
 
-            val req = Request.Builder()
-                .url(FAST_BUNDLE_URL)
-                .header("User-Agent", "HorizonLauncher-Android/2.7.5")
-                .build()
-
-            val resp = httpClient.newCall(req).execute()
-            if (!resp.isSuccessful) {
-                Log.w(TAG, "Fast CDN bundle responded with HTTP ${resp.code}")
-                return@withContext false
-            }
-
-            val body = resp.body ?: return@withContext false
-            val totalBytes = body.contentLength().coerceAtLeast(1L)
+            var totalBytes = -1L
+            var downloaded = if (tempZip.exists()) tempZip.length() else 0L
+            val maxRetries = 6
+            var attempt = 0
+            var success = false
             val startTime = System.currentTimeMillis()
 
-            body.byteStream().use { input ->
-                FileOutputStream(tempZip).use { output ->
-                    val buffer = ByteArray(65536)
-                    var readBytes: Int
-                    var downloaded = 0L
-                    while (input.read(buffer).also { readBytes = it } != -1) {
-                        output.write(buffer, 0, readBytes)
-                        downloaded += readBytes
-                        val elapsed = ((System.currentTimeMillis() - startTime) / 1000).coerceAtLeast(1)
-                        val speed = downloaded / elapsed
-                        val prog = 0.04 + (0.76 * (downloaded.toDouble() / totalBytes.toDouble()))
-                        val mbDl = downloaded / (1024 * 1024)
-                        val mbTot = totalBytes / (1024 * 1024)
-                        listener.onProgress("Fast CDN", prog, speed, "Mengunduh paket lengkap ($mbDl / $mbTot MB)")
+            while (attempt < maxRetries && !success) {
+                attempt++
+                try {
+                    val reqBuilder = Request.Builder()
+                        .url(FAST_BUNDLE_URL)
+                        .header("User-Agent", "HorizonLauncher-Android/2.7.5")
+
+                    if (downloaded > 0L) {
+                        reqBuilder.header("Range", "bytes=$downloaded-")
+                        Log.i(TAG, "Melanjutkan unduhan dari byte $downloaded (percobaan $attempt)...")
                     }
+
+                    val resp = httpClient.newCall(reqBuilder.build()).execute()
+                    if (resp.code == 416) {
+                        success = true
+                        resp.close()
+                        break
+                    }
+
+                    if (!resp.isSuccessful && resp.code != 206) {
+                        Log.w(TAG, "Fast CDN percobaan $attempt gagal HTTP ${resp.code}")
+                        resp.close()
+                        if (attempt >= maxRetries) return@withContext false
+                        delay(1500L * attempt)
+                        continue
+                    }
+
+                    val body = resp.body ?: continue
+                    if (totalBytes <= 0L) {
+                        val length = body.contentLength()
+                        totalBytes = if (resp.code == 206) {
+                            val cr = resp.header("Content-Range")
+                            if (cr != null && cr.contains("/")) {
+                                cr.substringAfter("/").toLongOrNull() ?: (downloaded + length)
+                            } else {
+                                downloaded + length
+                            }
+                        } else {
+                            length
+                        }
+                    }
+
+                    val append = (resp.code == 206 && downloaded > 0L)
+                    body.byteStream().use { input ->
+                        FileOutputStream(tempZip, append).use { output ->
+                            val buffer = ByteArray(65536)
+                            var readBytes: Int
+                            while (input.read(buffer).also { readBytes = it } != -1) {
+                                output.write(buffer, 0, readBytes)
+                                downloaded += readBytes
+                                val elapsed = ((System.currentTimeMillis() - startTime) / 1000).coerceAtLeast(1)
+                                val speed = downloaded / elapsed
+                                val prog = 0.04 + (0.76 * (downloaded.toDouble() / totalBytes.coerceAtLeast(1L).toDouble()))
+                                val mbDl = downloaded / (1024 * 1024)
+                                val mbTot = totalBytes.coerceAtLeast(1L) / (1024 * 1024)
+                                listener.onProgress("Fast CDN", prog.coerceAtMost(0.80), speed, "Mengunduh paket lengkap ($mbDl / $mbTot MB)")
+                            }
+                        }
+                    }
+
+                    if (totalBytes > 0 && downloaded >= totalBytes) {
+                        success = true
+                    } else if (totalBytes <= 0 && downloaded > 300 * 1024 * 1024) {
+                        success = true
+                    }
+                } catch (e: Exception) {
+                    Log.w(TAG, "Koneksi terputus di $downloaded bytes: ${e.message}. Mencoba kembali...")
+                    listener.onProgress("Fast CDN", 0.04 + (0.76 * (downloaded.toDouble() / totalBytes.coerceAtLeast(1L).toDouble())), 0, "Koneksi terputus, menyambung ulang otomatis ($attempt)...")
+                    if (attempt >= maxRetries) return@withContext false
+                    delay(2000L * attempt)
                 }
             }
+
+            if (!success) return@withContext false
 
             listener.onProgress("Ekstraksi", 0.82, 0, "Mengekstrak aset, audio, dan kontrol Bedrock...")
             ZipInputStream(BufferedInputStream(FileInputStream(tempZip))).use { zipIn ->
@@ -364,6 +442,7 @@ class ResourceDownloader(private val context: Context) {
 
     fun importPreparedZip(zipUri: Uri, listener: ProgressListener) {
         scope.launch(Dispatchers.IO) {
+            acquireWakeLock()
             try {
                 listener.onProgress("Import SAF", 0.1, 0, "Mengekstrak file .zip yang dipilih...")
                 if (stagingDir.exists()) stagingDir.deleteRecursively()
@@ -427,6 +506,8 @@ class ResourceDownloader(private val context: Context) {
                 listener.onComplete(targetDir.absolutePath, sha256)
             } catch (e: Exception) {
                 listener.onError("Gagal import: ${e.message}")
+            } finally {
+                releaseWakeLock()
             }
         }
     }
