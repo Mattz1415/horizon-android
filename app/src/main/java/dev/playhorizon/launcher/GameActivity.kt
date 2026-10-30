@@ -1,33 +1,36 @@
 package dev.playhorizon.launcher
 
-import android.annotation.SuppressLint
+import android.app.NativeActivity
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Environment
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.provider.Settings
 import android.util.Log
 import android.view.KeyEvent
+import android.view.LayoutInflater
 import android.view.MotionEvent
-import android.view.SurfaceHolder
-import android.view.SurfaceView
 import android.view.View
+import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.widget.Button
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import dev.playhorizon.launcher.core.AssetManagerService
 import dev.playhorizon.launcher.core.HorizonNativeBridge
 
-class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
+class GameActivity : NativeActivity() {
 
     companion object {
         private const val TAG = "GameActivity"
+        private const val STORAGE_PERMISSION_CODE = 1001
     }
 
-    private lateinit var surfaceView: SurfaceView
     private lateinit var assetManager: AssetManagerService
     private var vibrator: Vibrator? = null
 
@@ -37,24 +40,60 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         hideSystemUI()
-
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        setContentView(R.layout.activity_game)
 
         assetManager = AssetManagerService(this)
         try {
             assetManager.prepareDirectories()
         } catch (e: Exception) {
-            Log.e(TAG, "prepareDirectories failed: ${e.message}")
+            Log.e(TAG, "prepareDirectories error: ${e.message}")
         }
+
+        checkAndRequestStoragePermissions()
 
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
 
-        surfaceView = findViewById(R.id.gameSurfaceView)
-        surfaceView.holder.addCallback(this)
+        // Inflate virtual touch controls overlay and add on top of native surface
+        val overlayView = LayoutInflater.from(this).inflate(R.layout.activity_game, null)
+        overlayView.findViewById<View>(R.id.gameSurfaceView)?.visibility = View.GONE
 
-        setupTouchControls()
-        setupCameraLookArea()
+        addContentView(
+            overlayView,
+            ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        setupTouchControls(overlayView)
+        setupCameraLookArea(overlayView)
+    }
+
+    private fun checkAndRequestStoragePermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                    Toast.makeText(this, "Izinkan akses file agar Horizon dapat memuat aset Minecraft", Toast.LENGTH_LONG).show()
+                } catch (e: Exception) {
+                    try {
+                        val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
+                        startActivity(intent)
+                    } catch (ignored: Exception) {}
+                }
+            }
+        } else {
+            requestPermissions(
+                arrayOf(
+                    android.Manifest.permission.READ_EXTERNAL_STORAGE,
+                    android.Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ),
+                STORAGE_PERMISSION_CODE
+            )
+        }
     }
 
     private fun hideSystemUI() {
@@ -94,29 +133,19 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
         } catch (ignored: Exception) {}
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    private fun bindKeyButton(button: Button?, keyCode: Int, androidKeyCode: Int = 0) {
+    private fun bindKeyButton(overlay: View, buttonId: Int, androidKeyCode: Int) {
+        val button = overlay.findViewById<Button>(buttonId)
         button?.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     triggerHaptic()
-                    HorizonNativeBridge.safeSendKeyEvent(keyCode, true)
-                    if (androidKeyCode != 0) {
-                        try {
-                            val time = System.currentTimeMillis()
-                            dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, androidKeyCode, 0))
-                        } catch (ignored: Exception) {}
-                    }
+                    val time = System.currentTimeMillis()
+                    dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, androidKeyCode, 0))
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    HorizonNativeBridge.safeSendKeyEvent(keyCode, false)
-                    if (androidKeyCode != 0) {
-                        try {
-                            val time = System.currentTimeMillis()
-                            dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_UP, androidKeyCode, 0))
-                        } catch (ignored: Exception) {}
-                    }
+                    val time = System.currentTimeMillis()
+                    dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_UP, androidKeyCode, 0))
                     true
                 }
                 else -> false
@@ -124,8 +153,8 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
         }
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    private fun bindMouseButton(button: Button?, mouseButton: Int) {
+    private fun bindMouseButton(overlay: View, buttonId: Int, mouseButton: Int) {
+        val button = overlay.findViewById<Button>(buttonId)
         button?.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -142,29 +171,28 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
         }
     }
 
-    private fun setupTouchControls() {
-        // D-Pad Movement (W, A, S, D + Sneak/Shift)
-        bindKeyButton(findViewById(R.id.btnUp), HorizonNativeBridge.KEY_W, KeyEvent.KEYCODE_W)
-        bindKeyButton(findViewById(R.id.btnLeft), HorizonNativeBridge.KEY_A, KeyEvent.KEYCODE_A)
-        bindKeyButton(findViewById(R.id.btnDown), HorizonNativeBridge.KEY_S, KeyEvent.KEYCODE_S)
-        bindKeyButton(findViewById(R.id.btnRight), HorizonNativeBridge.KEY_D, KeyEvent.KEYCODE_D)
-        bindKeyButton(findViewById(R.id.btnSneak), HorizonNativeBridge.KEY_SHIFT, KeyEvent.KEYCODE_SHIFT_LEFT)
+    private fun setupTouchControls(overlay: View) {
+        // Left Virtual D-Pad
+        bindKeyButton(overlay, R.id.btnUp, KeyEvent.KEYCODE_W)
+        bindKeyButton(overlay, R.id.btnLeft, KeyEvent.KEYCODE_A)
+        bindKeyButton(overlay, R.id.btnDown, KeyEvent.KEYCODE_S)
+        bindKeyButton(overlay, R.id.btnRight, KeyEvent.KEYCODE_D)
+        bindKeyButton(overlay, R.id.btnSneak, KeyEvent.KEYCODE_SHIFT_LEFT)
 
-        // Action Buttons (Jump, Attack/Break, Place/Use)
-        bindKeyButton(findViewById(R.id.btnJump), HorizonNativeBridge.KEY_SPACE, KeyEvent.KEYCODE_SPACE)
-        bindMouseButton(findViewById(R.id.btnAttack), HorizonNativeBridge.MOUSE_LEFT)
-        bindMouseButton(findViewById(R.id.btnPlace), HorizonNativeBridge.MOUSE_RIGHT)
+        // Right Action Buttons
+        bindKeyButton(overlay, R.id.btnJump, KeyEvent.KEYCODE_SPACE)
+        bindMouseButton(overlay, R.id.btnAttack, HorizonNativeBridge.MOUSE_LEFT)
+        bindMouseButton(overlay, R.id.btnPlace, HorizonNativeBridge.MOUSE_RIGHT)
 
-        // Top Utility Buttons (ESC, F3, CHAT, INV)
-        bindKeyButton(findViewById(R.id.btnEsc), HorizonNativeBridge.KEY_ESC, KeyEvent.KEYCODE_ESCAPE)
-        bindKeyButton(findViewById(R.id.btnF3), HorizonNativeBridge.KEY_F3, KeyEvent.KEYCODE_F3)
-        bindKeyButton(findViewById(R.id.btnChat), HorizonNativeBridge.KEY_T, KeyEvent.KEYCODE_T)
-        bindKeyButton(findViewById(R.id.btnInv), HorizonNativeBridge.KEY_E, KeyEvent.KEYCODE_E)
+        // Top Utility Buttons
+        bindKeyButton(overlay, R.id.btnEsc, KeyEvent.KEYCODE_ESCAPE)
+        bindKeyButton(overlay, R.id.btnF3, KeyEvent.KEYCODE_F3)
+        bindKeyButton(overlay, R.id.btnChat, KeyEvent.KEYCODE_T)
+        bindKeyButton(overlay, R.id.btnInv, KeyEvent.KEYCODE_E)
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    private fun setupCameraLookArea() {
-        val cameraArea = findViewById<View>(R.id.touchCameraArea)
+    private fun setupCameraLookArea(overlay: View) {
+        val cameraArea = overlay.findViewById<View>(R.id.touchCameraArea)
         cameraArea?.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -173,8 +201,8 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val deltaX = event.x - lastTouchX
-                    val deltaY = event.y - lastTouchY
+                    val deltaX = (event.x - lastTouchX) * 1.5f
+                    val deltaY = (event.y - lastTouchY) * 1.5f
                     HorizonNativeBridge.safeSendMouseMotion(deltaX, deltaY)
                     lastTouchX = event.x
                     lastTouchY = event.y
@@ -182,47 +210,6 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
                 }
                 else -> false
             }
-        }
-    }
-
-    // --- SurfaceHolder.Callback Implementation ---
-    override fun surfaceCreated(holder: SurfaceHolder) {
-        val width = surfaceView.width.takeIf { it > 0 } ?: 1280
-        val height = surfaceView.height.takeIf { it > 0 } ?: 720
-        val dataDir = assetManager.horizonDataDir.absolutePath
-
-        try {
-            val ok = HorizonNativeBridge.safeInit(holder.surface, width, height, dataDir)
-            if (!ok) {
-                Log.w(TAG, "Native bridge initialized in standby mode (${width}x${height})")
-            }
-        } catch (e: Throwable) {
-            Log.e(TAG, "surfaceCreated error: ${e.message}", e)
-        }
-    }
-
-    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-        try {
-            HorizonNativeBridge.safeResize(width, height)
-        } catch (e: Throwable) {
-            Log.e(TAG, "surfaceChanged error: ${e.message}", e)
-        }
-    }
-
-    override fun surfaceDestroyed(holder: SurfaceHolder) {
-        try {
-            HorizonNativeBridge.safeStop()
-        } catch (e: Throwable) {
-            Log.e(TAG, "surfaceDestroyed error: ${e.message}", e)
-        }
-    }
-
-    override fun onDestroy() {
-        super.onDestroy()
-        try {
-            HorizonNativeBridge.safeStop()
-        } catch (e: Throwable) {
-            Log.e(TAG, "onDestroy error: ${e.message}", e)
         }
     }
 }

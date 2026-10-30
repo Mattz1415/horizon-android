@@ -54,20 +54,20 @@ jobs:
         run: |
           ./gradlew :app:assembleDebug :app:assembleRelease --no-daemon --stacktrace
           mkdir -p dist
-          cp app/build/outputs/apk/debug/*.apk dist/HorizonLauncher-v1.0.0-debug.apk
-          cp app/build/outputs/apk/release/*.apk dist/HorizonLauncher-v1.0.0-release-unsigned.apk
+          cp app/build/outputs/apk/debug/*.apk dist/HorizonLauncher-v2.4.0-debug.apk
+          cp app/build/outputs/apk/release/*.apk dist/HorizonLauncher-v2.4.0-release-unsigned.apk
           ls -lh dist/
 
       - name: Upload Horizon Launcher Debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: HorizonLauncher-v1.0.0-debug-apk
-          path: dist/HorizonLauncher-v1.0.0-debug.apk
+          name: HorizonLauncher-v2.4.0-debug-apk
+          path: dist/HorizonLauncher-v2.4.0-debug.apk
           if-no-files-found: error
 
       - name: Upload Horizon Launcher Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: HorizonLauncher-v1.0.0-release-apk
-          path: dist/HorizonLauncher-v1.0.0-release-unsigned.apk
+          name: HorizonLauncher-v2.4.0-release-apk
+          path: dist/HorizonLauncher-v2.4.0-release-unsigned.apk
           if-no-files-found: error
