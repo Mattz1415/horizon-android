@@ -18,7 +18,8 @@
     <application
         android:label="Horizon Launcher"
         android:appCategory="game"
-        android:icon="@drawable/launcher_icon"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:banner="@drawable/tv_banner"
         android:extractNativeLibs="true"
         android:usesCleartextTraffic="false"
