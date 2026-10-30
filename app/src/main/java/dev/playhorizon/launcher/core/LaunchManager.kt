@@ -1,10 +1,13 @@
 package dev.playhorizon.launcher.core
 
+import android.app.Activity
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.widget.Toast
-import dev.playhorizon.launcher.GameActivity
 
 object LaunchManager {
 
@@ -15,13 +18,14 @@ object LaunchManager {
     fun isTermuxInstalled(context: Context): Boolean = true
 
     /**
-     * Menjalankan Horizon Engine di background dan membuka GameActivity native secara langsung.
-     * Tidak lagi melompat ke aplikasi eksternal (Termux-X11), persis seperti Pojav/Zalith Launcher.
+     * Membuka game Minecraft Horizon secara instan saat aplikasi dibuka.
+     * Mengirim RUN_COMMAND ke Termux untuk menjalankan engine di background
+     * dan langsung membawa layar game ke foreground secara seamless.
      */
-    fun launchHorizon(context: Context) {
-        Log.i(TAG, "Initiating Horizon Native In-App Game Session...")
+    fun launchHorizonDirect(activity: Activity) {
+        Log.i(TAG, "Instant Boot: Launching Horizon Minecraft directly...")
 
-        // 1. Jalankan engine background runner via Termux RUN_COMMAND jika tersedia
+        // 1. Eksekusi script start-horizon.sh di Termux via RunCommandService
         try {
             val runIntent = Intent("com.termux.RUN_COMMAND").apply {
                 setClassName("com.termux", "com.termux.app.RunCommandService")
@@ -29,17 +33,44 @@ object LaunchManager {
                 putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
                 putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
             }
-            context.startService(runIntent)
-            Log.i(TAG, "Sent RUN_COMMAND intent to start Horizon engine in background")
+            activity.startService(runIntent)
+            Log.i(TAG, "Sent RUN_COMMAND to Termux")
         } catch (e: Exception) {
-            Log.w(TAG, "Note: Background RUN_COMMAND service: ${e.message}")
+            Log.e(TAG, "Error triggering Termux RUN_COMMAND: ${e.message}")
         }
 
-        // 2. Buka GameActivity langsung di dalam launcher APK (Native SurfaceView + Virtual Touch Controls)
-        val gameIntent = Intent(context, GameActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        // 2. Buka jendela game langsung ke layar depan
+        val x11Intent = activity.packageManager.getLaunchIntentForPackage("com.termux.x11")
+            ?: Intent().apply {
+                component = ComponentName("com.termux.x11", "com.termux.x11.MainActivity")
+            }
+        x11Intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+
+        try {
+            activity.startActivity(x11Intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error launching game window: ${e.message}")
         }
-        context.startActivity(gameIntent)
-        Toast.makeText(context, "Membuka Horizon Native Game...", Toast.LENGTH_SHORT).show()
+
+        Toast.makeText(activity, "Memulai Horizon Minecraft (Adreno 619)...", Toast.LENGTH_SHORT).show()
+
+        // Selesaikan activity launcher setelah transisi sehingga game langsung di layar
+        Handler(Looper.getMainLooper()).postDelayed({
+            activity.finish()
+        }, 1000)
+    }
+
+    fun launchHorizon(context: Context) {
+        if (context is Activity) {
+            launchHorizonDirect(context)
+        } else {
+            val runIntent = Intent("com.termux.RUN_COMMAND").apply {
+                setClassName("com.termux", "com.termux.app.RunCommandService")
+                putExtra("com.termux.RUN_COMMAND_PATH", HORIZON_SCRIPT_PATH)
+                putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
+                putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
+            }
+            context.startService(runIntent)
+        }
     }
 }
