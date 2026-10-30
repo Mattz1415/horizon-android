@@ -131,6 +131,9 @@ class VirtualTouchpadView @JvmOverloads constructor(
     }
 
     fun handleTouchEvent(event: MotionEvent): Boolean {
+        val w = if (width > 0) width.toFloat() else resources.displayMetrics.widthPixels.toFloat()
+        val h = if (height > 0) height.toFloat() else resources.displayMetrics.heightPixels.toFloat()
+
         when (event.actionMasked) {
             MotionEvent.ACTION_DOWN -> {
                 val pointerIndex = 0
@@ -141,6 +144,16 @@ class VirtualTouchpadView @JvmOverloads constructor(
                 lastTouchY = startTouchY
                 touchStartTime = System.currentTimeMillis()
                 isDragging = false
+
+                if (isMouseMode) {
+                    // Update cursor to finger location immediately on touch down
+                    mouseX = startTouchX.coerceIn(0f, w)
+                    mouseY = startTouchY.coerceIn(0f, h)
+                    val normX = if (w > 0) (mouseX / w).coerceIn(0f, 1f) else 0.5f
+                    val normY = if (h > 0) (mouseY / h).coerceIn(0f, 1f) else 0.5f
+                    HorizonNativeBridge.safeSendCursorPos(normX, normY)
+                    invalidate()
+                }
                 return true
             }
 
@@ -162,11 +175,6 @@ class VirtualTouchpadView @JvmOverloads constructor(
             MotionEvent.ACTION_MOVE -> {
                 val pointerIndex = event.findPointerIndex(trackedPointerId)
                 if (pointerIndex == -1) {
-                    // Fall back to first pointer if tracked pointer is lost
-                    val fallbackIndex = 0
-                    trackedPointerId = event.getPointerId(fallbackIndex)
-                    lastTouchX = event.getX(fallbackIndex)
-                    lastTouchY = event.getY(fallbackIndex)
                     return true
                 }
 
@@ -176,16 +184,13 @@ class VirtualTouchpadView @JvmOverloads constructor(
                 val deltaY = curY - lastTouchY
 
                 val distFromStart = hypot((curX - startTouchX).toDouble(), (curY - startTouchY).toDouble())
-                if (distFromStart > 4 * density) {
+                if (distFromStart > 12 * density) {
                     isDragging = true
                 }
 
-                val w = if (width > 0) width.toFloat() else resources.displayMetrics.widthPixels.toFloat()
-                val h = if (height > 0) height.toFloat() else resources.displayMetrics.heightPixels.toFloat()
-
                 if (isMouseMode) {
-                    mouseX = max(0f, min(w, mouseX + deltaX * mouseSpeed))
-                    mouseY = max(0f, min(h, mouseY + deltaY * mouseSpeed))
+                    mouseX = curX.coerceIn(0f, w)
+                    mouseY = curY.coerceIn(0f, h)
                     val normX = if (w > 0) (mouseX / w).coerceIn(0f, 1f) else 0.5f
                     val normY = if (h > 0) (mouseY / h).coerceIn(0f, 1f) else 0.5f
                     HorizonNativeBridge.safeSendCursorPos(normX, normY)
@@ -218,14 +223,12 @@ class VirtualTouchpadView @JvmOverloads constructor(
                 val duration = System.currentTimeMillis() - touchStartTime
                 val totalDist = hypot((lastTouchX - startTouchX).toDouble(), (lastTouchY - startTouchY).toDouble())
 
-                if (!isDragging && duration < 280 && totalDist < 14 * density) {
-                    if (isMouseMode) {
+                if (isMouseMode) {
+                    // Tap detection: short tap with minimal movement (< 24dp, < 500ms) triggers Left Click!
+                    if (!isDragging && duration < 500 && totalDist < 24 * density) {
                         triggerHaptic()
-                        // Move cursor to tap position for instant direct-touch, then click
-                        val w = if (width > 0) width.toFloat() else resources.displayMetrics.widthPixels.toFloat()
-                        val h = if (height > 0) height.toFloat() else resources.displayMetrics.heightPixels.toFloat()
-                        mouseX = max(0f, min(w, startTouchX))
-                        mouseY = max(0f, min(h, startTouchY))
+                        mouseX = startTouchX.coerceIn(0f, w)
+                        mouseY = startTouchY.coerceIn(0f, h)
                         val normX = if (w > 0) (mouseX / w).coerceIn(0f, 1f) else 0.5f
                         val normY = if (h > 0) (mouseY / h).coerceIn(0f, 1f) else 0.5f
                         HorizonNativeBridge.safeSendCursorPos(normX, normY)
@@ -234,7 +237,7 @@ class VirtualTouchpadView @JvmOverloads constructor(
                         HorizonNativeBridge.safeSendMouseButton(HorizonNativeBridge.MOUSE_LEFT, true)
                         postDelayed({
                             HorizonNativeBridge.safeSendMouseButton(HorizonNativeBridge.MOUSE_LEFT, false)
-                        }, 50)
+                        }, 60)
                     }
                 }
                 trackedPointerId = MotionEvent.INVALID_POINTER_ID

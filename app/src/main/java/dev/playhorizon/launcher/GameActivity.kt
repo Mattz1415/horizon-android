@@ -44,8 +44,8 @@ class GameActivity : NativeActivity() {
     private lateinit var assetManager: AssetManagerService
     private var vibrator: Vibrator? = null
     private var touchpadView: VirtualTouchpadView? = null
-    private var touchControlsPopup: PopupWindow? = null
     private var overlayRootView: View? = null
+    private var isOverlayAttached = false
 
     private var isGuiVisible = true
     private var lastGrabbedState: Boolean? = null
@@ -74,51 +74,32 @@ class GameActivity : NativeActivity() {
 
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
 
-        // Attach floating touch controls & virtual mouse on top of NativeActivity surface
-        window.decorView.post {
-            showTouchControlsOverlay()
-        }
+        // Attach touch controls & virtual mouse directly to Activity content view hierarchy
+        showTouchControlsOverlay()
     }
 
     private fun showTouchControlsOverlay() {
-        if (isFinishing || isDestroyed) return
-        if (touchControlsPopup?.isShowing == true) return
-
-        val decor = window.decorView
-        if (decor.windowToken == null) {
-            decor.postDelayed({ showTouchControlsOverlay() }, 100)
-            return
-        }
+        if (isFinishing || isDestroyed || isOverlayAttached) return
 
         try {
             val inflater = LayoutInflater.from(this)
             val overlayView = inflater.inflate(R.layout.activity_game, null)
             overlayRootView = overlayView
 
-            val popup = PopupWindow(
+            addContentView(
                 overlayView,
-                WindowManager.LayoutParams.MATCH_PARENT,
-                WindowManager.LayoutParams.MATCH_PARENT,
-                false
-            ).apply {
-                isTouchable = true
-                isFocusable = false
-                isOutsideTouchable = false
-                isClippingEnabled = false
-                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    setIsClippedToScreen(false)
-                }
-            }
-
-            popup.showAtLocation(decor, Gravity.TOP or Gravity.START, 0, 0)
-            touchControlsPopup = popup
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+            isOverlayAttached = true
 
             touchpadView = overlayView.findViewById(R.id.virtualTouchpadView)
 
-            // Initial Menu state: hide gameplay D-pad & action buttons, enable virtual mouse
+            // Initial Menu state: hide gameplay D-pad, keep PRI/SEC action buttons available, enable virtual mouse
             overlayView.findViewById<View>(R.id.leftControlsContainer)?.visibility = View.GONE
-            overlayView.findViewById<View>(R.id.rightControlsContainer)?.visibility = View.GONE
+            overlayView.findViewById<View>(R.id.rightControlsContainer)?.visibility = View.VISIBLE
             touchpadView?.isMouseMode = true
             overlayView.findViewById<Button>(R.id.btnMouse)?.setBackgroundResource(R.drawable.bg_control_button_active)
 
@@ -130,9 +111,9 @@ class GameActivity : NativeActivity() {
             mainHandler.removeCallbacks(grabStatePoller)
             mainHandler.post(grabStatePoller)
 
-            Log.i(TAG, "Virtual touch controls and mouse popup attached successfully!")
+            Log.i(TAG, "Virtual touch controls and mouse overlay attached successfully via addContentView!")
         } catch (e: Exception) {
-            Log.e(TAG, "Error displaying touch controls popup: ${e.message}", e)
+            Log.e(TAG, "Error displaying touch controls overlay: ${e.message}", e)
         }
     }
 
@@ -162,13 +143,44 @@ class GameActivity : NativeActivity() {
             btnMouse?.setBackgroundResource(R.drawable.bg_control_button)
         } else {
             // MENU / TITLE SCREEN / INVENTORY (Cursor ungrabbed):
-            // Hide gameplay buttons completely so Minecraft UI buttons are 100% visible and unobstructed
+            // Hide movement D-pad, keep PRI/SEC action buttons available if GUI is enabled
             leftControls?.visibility = View.GONE
-            rightControls?.visibility = View.GONE
+            rightControls?.visibility = if (isGuiVisible) View.VISIBLE else View.GONE
             // Switch touchpad to virtual mouse pointer (with direct tap-to-click)
             touchpadView?.isMouseMode = true
             btnMouse?.setBackgroundResource(R.drawable.bg_control_button_active)
         }
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (window.superDispatchTouchEvent(ev)) {
+            return true
+        }
+        return true
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        val keyCode = event.keyCode
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_UP || 
+            keyCode == KeyEvent.KEYCODE_VOLUME_DOWN || 
+            keyCode == KeyEvent.KEYCODE_VOLUME_MUTE) {
+            return super.dispatchKeyEvent(event)
+        }
+        val isPressed = event.action == KeyEvent.ACTION_DOWN
+        HorizonNativeBridge.safeSendKey(keyCode, isPressed)
+        return true
+    }
+
+    override fun onResume() {
+        super.onResume()
+        hideSystemUI()
+        mainHandler.removeCallbacks(grabStatePoller)
+        mainHandler.post(grabStatePoller)
+    }
+
+    override fun onPause() {
+        mainHandler.removeCallbacks(grabStatePoller)
+        super.onPause()
     }
 
     private fun checkAndRequestStoragePermissions() {
@@ -221,23 +233,17 @@ class GameActivity : NativeActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             hideSystemUI()
-            if (touchControlsPopup == null || !touchControlsPopup!!.isShowing) {
-                window.decorView.post {
-                    showTouchControlsOverlay()
-                }
+            if (!isOverlayAttached) {
+                showTouchControlsOverlay()
             }
         }
     }
 
     override fun onDestroy() {
         mainHandler.removeCallbacksAndMessages(null)
-        try {
-            if (touchControlsPopup?.isShowing == true) {
-                touchControlsPopup?.dismiss()
-            }
-        } catch (ignored: Exception) {}
-        touchControlsPopup = null
         overlayRootView = null
+        touchpadView = null
+        isOverlayAttached = false
         super.onDestroy()
     }
 
@@ -261,19 +267,11 @@ class GameActivity : NativeActivity() {
                     triggerHaptic()
                     button.isPressed = true
                     HorizonNativeBridge.safeSendKey(androidKeyCode, true)
-                    try {
-                        val time = System.currentTimeMillis()
-                        dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, androidKeyCode, 0))
-                    } catch (ignored: Exception) {}
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     button.isPressed = false
                     HorizonNativeBridge.safeSendKey(androidKeyCode, false)
-                    try {
-                        val time = System.currentTimeMillis()
-                        dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_UP, androidKeyCode, 0))
-                    } catch (ignored: Exception) {}
                     true
                 }
                 else -> false
@@ -314,7 +312,7 @@ class GameActivity : NativeActivity() {
             isGuiVisible = !isGuiVisible
             val shouldShowGameControls = isGuiVisible && (lastGrabbedState == true)
             leftControls?.visibility = if (shouldShowGameControls) View.VISIBLE else View.GONE
-            rightControls?.visibility = if (shouldShowGameControls) View.VISIBLE else View.GONE
+            rightControls?.visibility = if (isGuiVisible) View.VISIBLE else View.GONE
 
             // Hide other buttons on top bar, keep only GUI button
             topBar?.let { bar ->
