@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.util.Log
 import android.view.MotionEvent
 import android.view.SurfaceHolder
 import android.view.SurfaceView
@@ -14,11 +15,16 @@ import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import dev.playhorizon.launcher.core.AssetManagerService
 import dev.playhorizon.launcher.core.HorizonNativeBridge
 
 class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
+
+    companion object {
+        private const val TAG = "GameActivity"
+    }
 
     private lateinit var surfaceView: SurfaceView
     private lateinit var assetManager: AssetManagerService
@@ -35,7 +41,12 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
         setContentView(R.layout.activity_game)
 
         assetManager = AssetManagerService(this)
-        assetManager.prepareDirectories()
+        try {
+            assetManager.prepareDirectories()
+        } catch (e: Exception) {
+            Log.e(TAG, "prepareDirectories failed: ${e.message}")
+        }
+
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
 
         surfaceView = findViewById(R.id.gameSurfaceView)
@@ -72,25 +83,27 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
     }
 
     private fun triggerHaptic() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator?.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE))
-        } else {
-            @Suppress("DEPRECATION")
-            vibrator?.vibrate(12)
-        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator?.vibrate(VibrationEffect.createOneShot(12, VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(12)
+            }
+        } catch (ignored: Exception) {}
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun bindKeyButton(button: Button, keyCode: Int) {
-        button.setOnTouchListener { _, event ->
+    private fun bindKeyButton(button: Button?, keyCode: Int) {
+        button?.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     triggerHaptic()
-                    HorizonNativeBridge.nativeSendKeyEvent(keyCode, true)
+                    HorizonNativeBridge.safeSendKeyEvent(keyCode, true)
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    HorizonNativeBridge.nativeSendKeyEvent(keyCode, false)
+                    HorizonNativeBridge.safeSendKeyEvent(keyCode, false)
                     true
                 }
                 else -> false
@@ -99,16 +112,16 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun bindMouseButton(button: Button, mouseButton: Int) {
-        button.setOnTouchListener { _, event ->
+    private fun bindMouseButton(button: Button?, mouseButton: Int) {
+        button?.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     triggerHaptic()
-                    HorizonNativeBridge.nativeSendMouseButton(mouseButton, true)
+                    HorizonNativeBridge.safeSendMouseButton(mouseButton, true)
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    HorizonNativeBridge.nativeSendMouseButton(mouseButton, false)
+                    HorizonNativeBridge.safeSendMouseButton(mouseButton, false)
                     true
                 }
                 else -> false
@@ -139,7 +152,7 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
     @SuppressLint("ClickableViewAccessibility")
     private fun setupCameraLookArea() {
         val cameraArea = findViewById<View>(R.id.touchCameraArea)
-        cameraArea.setOnTouchListener { _, event ->
+        cameraArea?.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     lastTouchX = event.x
@@ -149,7 +162,7 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
                 MotionEvent.ACTION_MOVE -> {
                     val deltaX = event.x - lastTouchX
                     val deltaY = event.y - lastTouchY
-                    HorizonNativeBridge.nativeSendMouseMotion(deltaX, deltaY)
+                    HorizonNativeBridge.safeSendMouseMotion(deltaX, deltaY)
                     lastTouchX = event.x
                     lastTouchY = event.y
                     true
@@ -165,19 +178,38 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
         val height = surfaceView.height.takeIf { it > 0 } ?: 720
         val dataDir = assetManager.horizonDataDir.absolutePath
 
-        HorizonNativeBridge.nativeInit(holder.surface, width, height, dataDir)
+        try {
+            val ok = HorizonNativeBridge.safeInit(holder.surface, width, height, dataDir)
+            if (!ok) {
+                Log.w(TAG, "Native bridge initialized in standby mode (${width}x${height})")
+            }
+        } catch (e: Throwable) {
+            Log.e(TAG, "surfaceCreated error: ${e.message}", e)
+        }
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
-        HorizonNativeBridge.nativeResize(width, height)
+        try {
+            HorizonNativeBridge.safeResize(width, height)
+        } catch (e: Throwable) {
+            Log.e(TAG, "surfaceChanged error: ${e.message}", e)
+        }
     }
 
     override fun surfaceDestroyed(holder: SurfaceHolder) {
-        HorizonNativeBridge.nativeStop()
+        try {
+            HorizonNativeBridge.safeStop()
+        } catch (e: Throwable) {
+            Log.e(TAG, "surfaceDestroyed error: ${e.message}", e)
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        HorizonNativeBridge.nativeStop()
+        try {
+            HorizonNativeBridge.safeStop()
+        } catch (e: Throwable) {
+            Log.e(TAG, "onDestroy error: ${e.message}", e)
+        }
     }
 }

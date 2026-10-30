@@ -11,6 +11,9 @@ cat << "EOF"
 ======================================================
 EOF
 
+# 0. Bersihkan proses Horizon lama agar tidak terjadi duplikasi frame / stuttering
+pkill -9 -f "horizon-client" 2>/dev/null || true
+
 # 1. Pastikan direktori X11 socket siap
 mkdir -p "$PREFIX/tmp/.X11-unix"
 
@@ -58,8 +61,10 @@ exec proot-distro login --bind /data/data/com.termux/files/usr/tmp/.X11-unix:/tm
     export DISPLAY=:0
     export PULSE_SERVER=127.0.0.1
     export VK_ICD_FILENAMES=/usr/share/vulkan/icd.d/freedreno_icd.aarch64.json
-    export MESA_VK_WSI_PRESENT_MODE=immediate
+    # Mailbox (Triple Buffering) atau Fifo (VSync) mengatasi tearing & black stutter dari atas
+    export MESA_VK_WSI_PRESENT_MODE=${MESA_VK_WSI_PRESENT_MODE:-mailbox}
     export TU_DEBUG=noconform
+    export vblank_mode=0
     cd /data/data/com.termux/files/home/horizon
     exec ./target/fast/horizon-client --resources .local/horizon-client/26.3 "$@"
 ' -- "$@"

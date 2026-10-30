@@ -11,8 +11,8 @@ android {
         applicationId = "dev.playhorizon.launcher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.1.0-bundled"
+        versionCode = 3
+        versionName = "1.2.0-stable"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
@@ -23,7 +23,7 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags.addAll(listOf("-std=c++17", "-O3", "-fexceptions"))
-                arguments.addAll(listOf("-DANDROID_STL=c++_shared"))
+                arguments.addAll(listOf("-DANDROID_STL=c++_static"))
             }
         }
     }
