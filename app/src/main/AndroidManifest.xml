@@ -1,11 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Permissions required for Minecraft networking, haptics, and file storage -->
+    <!-- Permissions required for Minecraft networking, haptics, file storage, and foreground service -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
@@ -19,21 +22,39 @@
         android:requestLegacyExternalStorage="true"
         android:theme="@style/Theme.HorizonLauncher.Fullscreen">
 
-        <!-- Fullscreen Horizon Native Minecraft Screen (Direct NativeActivity) -->
+        <!-- 1. LauncherActivity: Primary App Process (Landscape Modern UI) -->
         <activity
-            android:name=".GameActivity"
+            android:name=".LauncherActivity"
             android:exported="true"
             android:screenOrientation="sensorLandscape"
             android:theme="@style/Theme.HorizonLauncher.Fullscreen"
-            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation">
-            <meta-data
-                android:name="android.app.lib_name"
-                android:value="horizon_client" />
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- 2. GameActivity: Dedicated :game Process (Dual-Window Native Minecraft) -->
+        <activity
+            android:name=".GameActivity"
+            android:exported="false"
+            android:process=":game"
+            android:documentLaunchMode="intoExisting"
+            android:screenOrientation="sensorLandscape"
+            android:theme="@style/Theme.HorizonLauncher.Fullscreen"
+            android:configChanges="orientation|screenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode">
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="horizon_client" />
+        </activity>
+
+        <!-- 3. GameService: Foreground Service in :game Process -->
+        <service
+            android:name=".service.GameService"
+            android:exported="false"
+            android:process=":game"
+            android:foregroundServiceType="specialUse" />
 
     </application>
 

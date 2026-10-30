@@ -11,8 +11,8 @@ android {
         applicationId = "dev.playhorizon.launcher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 14
-        versionName = "2.5.5-fix-touch-menu-anr"
+        versionCode = 15
+        versionName = "2.6.0-dual-process-zalith-controls"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
