@@ -11,8 +11,8 @@ android {
         applicationId = "dev.playhorizon.launcher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 13
-        versionName = "2.5.4-fix-anr-input"
+        versionCode = 14
+        versionName = "2.5.5-fix-touch-menu-anr"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
