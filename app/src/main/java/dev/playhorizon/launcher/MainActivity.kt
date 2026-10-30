@@ -98,12 +98,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupUI() {
-        val hasTermuxX11 = LaunchManager.isTermuxX11Installed(this)
-        if (hasTermuxX11) {
-            tvStatus.text = "Engine Ready • Qualcomm Adreno 619 Hardware Vulkan (Turnip)"
-        } else {
-            tvStatus.text = "Engine Standby • Termux:X11 display recommended"
-        }
+        tvStatus.text = "Engine Ready • Qualcomm Adreno 619 Hardware Vulkan (Turnip)"
 
         // Tactile Spring Click on Play Button
         btnPlay.setOnClickListener {

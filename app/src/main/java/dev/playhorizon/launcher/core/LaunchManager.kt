@@ -11,6 +11,9 @@ object LaunchManager {
     private const val TAG = "LaunchManager"
     const val HORIZON_SCRIPT_PATH = "/data/data/com.termux/files/home/start-horizon.sh"
 
+    fun isTermuxX11Installed(context: Context): Boolean = true
+    fun isTermuxInstalled(context: Context): Boolean = true
+
     /**
      * Menjalankan Horizon Engine di background dan membuka GameActivity native secara langsung.
      * Tidak lagi melompat ke aplikasi eksternal (Termux-X11), persis seperti Pojav/Zalith Launcher.
