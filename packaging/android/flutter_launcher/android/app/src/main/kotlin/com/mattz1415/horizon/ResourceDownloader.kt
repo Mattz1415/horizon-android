@@ -24,6 +24,7 @@ class ResourceDownloader(private val context: Context) {
     companion object {
         private const val TAG = "ResourceDownloader"
         const val VERSION = "26.3"
+        const val FAST_BUNDLE_URL = "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.4/horizon-resources-26.3.zip"
         private const val MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
     }
 
@@ -86,6 +87,110 @@ class ResourceDownloader(private val context: Context) {
         activeJob = null
     }
 
+    private suspend fun tryDownloadFastBundle(listener: ProgressListener): Boolean = withContext(Dispatchers.IO) {
+        var tempZip: File? = null
+        try {
+            listener.onProgress("Fast CDN", 0.04, 0, "Menghubungkan ke CDN aset lengkap 26.3...")
+            tempZip = File(context.cacheDir, "horizon_resources_bundle.zip")
+            if (tempZip.exists()) tempZip.delete()
+
+            val req = Request.Builder()
+                .url(FAST_BUNDLE_URL)
+                .header("User-Agent", "HorizonLauncher-Android/2.7.5")
+                .build()
+
+            val resp = httpClient.newCall(req).execute()
+            if (!resp.isSuccessful) {
+                Log.w(TAG, "Fast CDN bundle responded with HTTP ${resp.code}")
+                return@withContext false
+            }
+
+            val body = resp.body ?: return@withContext false
+            val totalBytes = body.contentLength().coerceAtLeast(1L)
+            val startTime = System.currentTimeMillis()
+
+            body.byteStream().use { input ->
+                FileOutputStream(tempZip).use { output ->
+                    val buffer = ByteArray(65536)
+                    var readBytes: Int
+                    var downloaded = 0L
+                    while (input.read(buffer).also { readBytes = it } != -1) {
+                        output.write(buffer, 0, readBytes)
+                        downloaded += readBytes
+                        val elapsed = ((System.currentTimeMillis() - startTime) / 1000).coerceAtLeast(1)
+                        val speed = downloaded / elapsed
+                        val prog = 0.04 + (0.76 * (downloaded.toDouble() / totalBytes.toDouble()))
+                        val mbDl = downloaded / (1024 * 1024)
+                        val mbTot = totalBytes / (1024 * 1024)
+                        listener.onProgress("Fast CDN", prog, speed, "Mengunduh paket lengkap ($mbDl / $mbTot MB)")
+                    }
+                }
+            }
+
+            listener.onProgress("Ekstraksi", 0.82, 0, "Mengekstrak aset, audio, dan kontrol Bedrock...")
+            ZipInputStream(BufferedInputStream(FileInputStream(tempZip))).use { zipIn ->
+                val buffer = ByteArray(65536)
+                var entry: ZipEntry? = zipIn.nextEntry
+                var count = 0
+                while (entry != null) {
+                    val outFile = File(stagingDir, entry.name)
+                    if (outFile.canonicalPath.startsWith(stagingDir.canonicalPath)) {
+                        if (entry.isDirectory) {
+                            outFile.mkdirs()
+                        } else {
+                            outFile.parentFile?.mkdirs()
+                            FileOutputStream(outFile).use { out ->
+                                var len: Int
+                                while (zipIn.read(buffer).also { len = it } != -1) {
+                                    out.write(buffer, 0, len)
+                                }
+                            }
+                        }
+                    }
+                    count++
+                    if (count % 250 == 0) {
+                        listener.onProgress("Ekstraksi", 0.82 + (0.10 * (count.toDouble() / 5500.0)).coerceAtMost(0.10), 0, "Mengekstrak $count file aset...")
+                    }
+                    zipIn.closeEntry()
+                    entry = zipIn.nextEntry
+                }
+            }
+            tempZip.delete()
+
+            listener.onProgress("Engine Tables", 0.93, 0, "Mengekstrak tabel fakta internal...")
+            extractBundledOrFallbackFacts(stagingDir)
+
+            shieldAllAssets(stagingDir)
+
+            listener.onProgress("Verifikasi", 0.97, 0, "Menyimpan konfigurasi instalasi...")
+            val sha256 = computeDirHash(stagingDir)
+            File(stagingDir, ".prepared_sha256").writeText(sha256)
+            File(stagingDir, "android-downloads-v2.json").writeText("{\"schema\":2}")
+
+            if (targetDir.exists()) targetDir.deleteRecursively()
+            targetDir.mkdirs()
+            copyDirectory(stagingDir, targetDir)
+            shieldAllAssets(targetDir)
+
+            if (localTargetDir.exists()) localTargetDir.deleteRecursively()
+            localTargetDir.mkdirs()
+            copyDirectory(stagingDir, localTargetDir)
+            shieldAllAssets(localTargetDir)
+
+            stagingDir.deleteRecursively()
+
+            listener.onProgress("Selesai", 1.0, 0, "Minecraft 26.3 siap dimainkan!")
+            listener.onComplete(targetDir.absolutePath, sha256)
+            return@withContext true
+        } catch (e: Exception) {
+            Log.w(TAG, "Fast bundle download failed: ${e.message}", e)
+            tempZip?.delete()
+            stagingDir.deleteRecursively()
+            stagingDir.mkdirs()
+            return@withContext false
+        }
+    }
+
     private suspend fun performDownload(listener: ProgressListener) = withContext(Dispatchers.IO) {
         if (stagingDir.exists()) {
             stagingDir.deleteRecursively()
@@ -93,14 +198,18 @@ class ResourceDownloader(private val context: Context) {
         stagingDir.mkdirs()
 
         // 1. ISOLATE FROM GALLERY: Create .nomedia at every directory level
-        shieldFromGallery(context.filesDir)
-        shieldFromGallery(File(context.filesDir, "resources"))
-        shieldFromGallery(stagingDir)
-        shieldFromGallery(File(stagingDir, "assets"))
-        shieldFromGallery(gameDataDir)
+        shieldAllAssets(context.filesDir)
+        shieldAllAssets(File(context.filesDir, "resources"))
+        shieldAllAssets(stagingDir)
+        shieldAllAssets(gameDataDir)
 
-        // 2. Fetch Mojang Version Manifest
-        listener.onProgress("Manifest", 0.04, 0, "Mengecek version manifest Mojang 26.3...")
+        // 2. Try fast 1-click CDN bundle first (Zalith/Pojav style)
+        if (tryDownloadFastBundle(listener)) {
+            return@withContext
+        }
+
+        // 3. Fallback: Fetch Mojang Version Manifest
+        listener.onProgress("Fallback Mojang", 0.04, 0, "Mengalihkan ke pipeline unduhan Mojang...")
         val manifestJsonStr = fetchString(MANIFEST_URL)
         val manifestObj = JSONObject(manifestJsonStr)
         val versionsArr = manifestObj.getJSONArray("versions")
@@ -293,19 +402,24 @@ class ResourceDownloader(private val context: Context) {
                     }
                 } ?: throw IOException("Gagal membuka file dari URI")
 
-                listener.onProgress("Verifikasi", 0.9, 0, "Memvalidasi resource...")
+                listener.onProgress("Verifikasi", 0.90, 0, "Mengekstrak tabel fakta internal...")
+                extractBundledOrFallbackFacts(stagingDir)
+                shieldAllAssets(stagingDir)
+
+                listener.onProgress("Verifikasi", 0.95, 0, "Memvalidasi resource...")
                 val sha256 = computeDirHash(stagingDir)
                 File(stagingDir, ".prepared_sha256").writeText(sha256)
+                File(stagingDir, "android-downloads-v2.json").writeText("{\"schema\":2}")
 
                 if (targetDir.exists()) targetDir.deleteRecursively()
                 targetDir.mkdirs()
                 copyDirectory(stagingDir, targetDir)
-                shieldFromGallery(targetDir)
+                shieldAllAssets(targetDir)
 
                 if (localTargetDir.exists()) localTargetDir.deleteRecursively()
                 localTargetDir.mkdirs()
                 copyDirectory(stagingDir, localTargetDir)
-                shieldFromGallery(localTargetDir)
+                shieldAllAssets(localTargetDir)
 
                 stagingDir.deleteRecursively()
 
@@ -323,6 +437,19 @@ class ResourceDownloader(private val context: Context) {
             val nomedia = File(dir, ".nomedia")
             if (!nomedia.exists()) {
                 nomedia.createNewFile()
+            }
+        } catch (_: Exception) {}
+    }
+
+    private fun shieldAllAssets(dir: File) {
+        try {
+            shieldFromGallery(dir)
+            val subdirs = listOf("assets", "assets/minecraft", "assets/minecraft/textures", "assets/objects", "data")
+            for (sub in subdirs) {
+                val subDir = File(dir, sub)
+                if (subDir.exists()) {
+                    shieldFromGallery(subDir)
+                }
             }
         } catch (_: Exception) {}
     }

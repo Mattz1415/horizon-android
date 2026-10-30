@@ -226,8 +226,8 @@ class _HorizonMainShellState extends State<HorizonMainShell>
   String _preparedSha256 = '';
   String _statusMessage = 'Memeriksa resource 26.3...';
 
-  // Engine Preferences
-  int _ramMb = 2048;
+  // Engine Preferences (Realme 10 Pro 5G Tuned: Snapdragon 695 / Adreno 619)
+  int _ramMb = 2560;
   int _workerThreads = 4;
   String _backend = 'vulkan';
   int _touchScheme = 0;
@@ -237,7 +237,7 @@ class _HorizonMainShellState extends State<HorizonMainShell>
   double _downloadProgress = 0.0;
   String _downloadStage = 'Standby';
   int _downloadSpeed = 0;
-  String _downloadDetail = 'Tekan Start untuk memulai download paralel dari Mojang.';
+  String _downloadDetail = 'Pilih metode unduhan (Otomatis CDN atau Pasang Manual).';
   bool _isDownloading = false;
 
   StreamSubscription? _progressSubscription;
@@ -846,7 +846,7 @@ class _HorizonMainShellState extends State<HorizonMainShell>
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Minecraft 26.3 Pipeline Resilier',
+                    const Text('Pusat Aset & Data Game 26.3',
                         style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -856,22 +856,185 @@ class _HorizonMainShellState extends State<HorizonMainShell>
                             fontSize: 11, color: MonoGlass.coolAshGrey)),
                   ],
                 ),
-                // SAF Import Button
-                OutlinedButton.icon(
-                  onPressed: () => platform.invokeMethod('importResourcesZip'),
-                  icon: const Icon(Icons.folder_open_rounded, size: 16),
-                  label: const Text('Import Prepared .zip (SAF)',
-                      style: TextStyle(fontSize: 10)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: MonoGlass.pureWhite,
-                    side: const BorderSide(color: MonoGlass.borderTopLeft),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
+                // Quick status indicator badge
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: _isPrepared ? const Color(0x2210B981) : const Color(0x22F59E0B),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _isPrepared ? MonoGlass.statusReady : MonoGlass.statusPending,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: _isPrepared ? MonoGlass.statusReady : MonoGlass.statusPending,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _isPrepared ? 'Aset Siap' : 'Aset Belum Siap',
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: _isPrepared ? MonoGlass.statusReady : MonoGlass.statusPending,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
+
+            // Dua Opsi Instalasi (Otomatis & Manual)
+            Row(
+              children: [
+                // Opsi 1: Otomatis via Fast CDN
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: MonoGlass.glassCard,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: MonoGlass.borderTopLeft, width: 0.8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.bolt_rounded, size: 14, color: MonoGlass.pureWhite),
+                            const SizedBox(width: 4),
+                            const Text('Otomatis (Fast CDN)',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: MonoGlass.pureWhite)),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: MonoGlass.pureWhite.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('Rekomendasi',
+                                  style: TextStyle(fontSize: 8, color: MonoGlass.pureWhite)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Unduh 1 file paket zip utuh (audio, kontrol sentuh, dan tabel engine). Otomatis diekstrak.',
+                          style: TextStyle(fontSize: 9, color: MonoGlass.coolAshGrey),
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 8),
+                        TactileButton(
+                          onPressed: _startOrPauseDownload,
+                          backgroundColor: MonoGlass.pureWhite,
+                          height: 34,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                _isDownloading ? Icons.pause_rounded : Icons.cloud_download_rounded,
+                                size: 14,
+                                color: MonoGlass.pitchBlack,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _isDownloading ? 'JEDA UNDUHAN' : 'UNDUH OTOMATIS (CDN)',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: MonoGlass.pitchBlack,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+
+                // Opsi 2: Pasang Manual (Import .ZIP via File Picker)
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: MonoGlass.glassCard,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: MonoGlass.borderTopLeft, width: 0.8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.folder_zip_outlined, size: 14, color: MonoGlass.pureWhite),
+                            const SizedBox(width: 4),
+                            const Text('Pasang Manual (.ZIP)',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: MonoGlass.pureWhite)),
+                            const Spacer(),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: MonoGlass.coolAshGrey.withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Text('Offline Ready',
+                                  style: TextStyle(fontSize: 8, color: MonoGlass.coolAshGrey)),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Pilih file zip horizon-resources-26.3.zip yang telah diunduh manual ke memori HP.',
+                          style: TextStyle(fontSize: 9, color: MonoGlass.coolAshGrey),
+                          maxLines: 2,
+                        ),
+                        const SizedBox(height: 8),
+                        TactileButton(
+                          onPressed: () => platform.invokeMethod('importResourcesZip'),
+                          backgroundColor: MonoGlass.charcoalMesh,
+                          borderColor: MonoGlass.borderTopLeft,
+                          height: 34,
+                          child: const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.folder_open_rounded, size: 14, color: MonoGlass.pureWhite),
+                              SizedBox(width: 6),
+                              Text(
+                                'IMPORT FILE .ZIP (SAF)',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: MonoGlass.pureWhite,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
 
             // Animated Liquid Glass Progress Bar
             ClipRRect(
@@ -908,7 +1071,7 @@ class _HorizonMainShellState extends State<HorizonMainShell>
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -917,7 +1080,7 @@ class _HorizonMainShellState extends State<HorizonMainShell>
                   child: Text(
                     _downloadDetail,
                     style: const TextStyle(
-                        fontSize: 11, color: MonoGlass.coolAshGrey),
+                        fontSize: 10, color: MonoGlass.coolAshGrey),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -925,7 +1088,7 @@ class _HorizonMainShellState extends State<HorizonMainShell>
                   TabularText(
                     '${(_downloadSpeed / (1024 * 1024)).toStringAsFixed(2)} MB/s',
                     style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 10,
                         fontWeight: FontWeight.bold,
                         color: MonoGlass.pureWhite),
                   ),
@@ -934,37 +1097,25 @@ class _HorizonMainShellState extends State<HorizonMainShell>
 
             const Spacer(),
 
-            // Actions
+            // Bottom bar: Gallery protection status & Verify button
             Row(
               children: [
-                Expanded(
-                  child: TactileButton(
-                    onPressed: _startOrPauseDownload,
-                    backgroundColor: MonoGlass.pureWhite,
-                    height: 42,
-                    child: Text(
-                      _isDownloading
-                          ? 'PAUSE DOWNLOAD'
-                          : 'START / RESUME DOWNLOAD 26.3',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                        letterSpacing: 0.5,
-                        color: MonoGlass.pitchBlack,
-                      ),
-                    ),
-                  ),
+                const Icon(Icons.shield_outlined, size: 14, color: MonoGlass.coolAshGrey),
+                const SizedBox(width: 4),
+                const Text(
+                  'Gallery Shield (.nomedia) Aktif',
+                  style: TextStyle(fontSize: 10, color: MonoGlass.coolAshGrey),
                 ),
-                const SizedBox(width: 8),
+                const Spacer(),
                 TactileButton(
                   onPressed: _checkResources,
                   backgroundColor: MonoGlass.charcoalMesh,
                   borderColor: MonoGlass.borderTopLeft,
-                  width: 90,
-                  height: 42,
-                  child: const Text('VERIFY',
+                  width: 100,
+                  height: 32,
+                  child: const Text('CEK STATUS',
                       style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 10,
                           fontWeight: FontWeight.bold,
                           color: MonoGlass.pureWhite)),
                 ),
