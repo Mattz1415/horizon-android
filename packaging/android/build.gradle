@@ -35,34 +35,27 @@ android {
     }
 
     signingConfigs {
-        development {
-            storeFile file('../../.local/android/debug.keystore')
-            storePassword 'android'
-            keyAlias 'androiddebugkey'
-            keyPassword 'android'
+        debug {
         }
     }
 
     buildTypes {
         debug {
-            signingConfig signingConfigs.development
-            versionNameSuffix '-dev.' + providers.gradleProperty('devBuild').getOrElse('local')
-            if (!providers.gradleProperty('appId').isPresent()) {
-                applicationIdSuffix '.dev'
-            }
+            signingConfig signingConfigs.debug
+            versionNameSuffix '-dev.local'
         }
         release {
             debuggable false
             jniDebuggable false
             minifyEnabled false
-            signingConfig signingConfigs.development
+            signingConfig signingConfigs.debug
         }
     }
 
     sourceSets.main {
         java.srcDirs = ['java', 'src/main/kotlin']
         manifest.srcFile 'AndroidManifest.xml'
-        jniLibs.srcDirs = ['../../.local/android/gradle-jni']
+        jniLibs.srcDirs = ['../../.local/android/gradle-jni', 'src/main/jniLibs']
         assets.srcDirs = ['../../.local/android/gradle-assets', 'assets']
         res.srcDirs = ['res']
     }
