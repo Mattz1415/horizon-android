@@ -112,6 +112,26 @@ class HorizonGameActivity : NativeActivity() {
 
         setupImeProxy()
         hideSystemUi()
+        setupControlOverlay()
+    }
+
+    private var controlOverlay: com.mattz1415.horizon.ui.ControlOverlay? = null
+
+    private fun setupControlOverlay() {
+        try {
+            val overlay = com.mattz1415.horizon.ui.ControlOverlay(this)
+            controlOverlay = overlay
+            addContentView(
+                overlay,
+                ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.MATCH_PARENT
+                )
+            )
+            Log.i(TAG, "Zalith/Pojav ControlOverlay attached successfully!")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error displaying ControlOverlay: ${e.message}", e)
+        }
     }
 
     private fun setupImeProxy() {

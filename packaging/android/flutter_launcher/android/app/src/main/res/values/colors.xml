@@ -13,4 +13,10 @@
     <color name="accent_green">#10B981</color>
     <color name="accent_amber">#F59E0B</color>
     <color name="accent_red">#EF4444</color>
+
+    <!-- Touch Controls (Abu Hitam Frosted Glass) -->
+    <color name="control_btn_bg">#331C1C1E</color>
+    <color name="control_btn_pressed">#66FFFFFF</color>
+    <color name="control_btn_border">#26FFFFFF</color>
+    <color name="control_text">#FFFFFF</color>
 </resources>
