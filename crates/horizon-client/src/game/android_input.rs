@@ -398,6 +398,26 @@ impl Game<'_> {
     }
     pub(super) fn android_poll_keyboard(&mut self) {
         self.android_custom_events();
+
+        // Drain IME events from native Android soft keyboard (HorizonGameActivity EditText proxy)
+        for event in crate::android_bridge::drain_ime_events() {
+            match event {
+                crate::android_bridge::ImeEvent::Input(s) => {
+                    self.pad_osk_output(Output::Text(s));
+                }
+                crate::android_bridge::ImeEvent::Backspace => {
+                    self.pad_osk_output(Output::Backspace);
+                }
+                crate::android_bridge::ImeEvent::Done => {
+                    let next_sign_line = self.sign_edit.is_some();
+                    self.pad_osk_output(Output::Enter);
+                    if !next_sign_line {
+                        crate::android_bridge::request_hide_soft_keyboard();
+                    }
+                }
+            }
+        }
+
         if let Some(notice) = crate::documents::poll() {
             if notice.changed {
                 self.refresh_pack_lists();

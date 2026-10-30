@@ -250,10 +250,14 @@ impl TouchUi {
     }
 }
 fn button(b: &mut HudBatch, a: &HudAtlas, label: &str, x: f32, y: f32, w: f32) {
-    if !crate::touch::theme_button(b, a, "button", [x, y, w, 20.0], false, u32::MAX, true) {
-        b.fill(a, x, y, w, 20.0, rgba(16, 18, 24, 180));
-    }
-    b.text(a, label, x + 4.0, y + 6.0, rgba(245, 245, 245, 255), true);
+    // Liquid Glass Compact 1.0px Specular Refraction Border
+    b.fill(a, x, y, w, 1.0, rgba(255, 255, 255, 56));
+    b.fill(a, x, y, 1.0, 20.0, rgba(255, 255, 255, 30));
+    b.fill(a, x + w - 1.0, y, 1.0, 20.0, rgba(255, 255, 255, 10));
+    b.fill(a, x, y + 19.0, w, 1.0, rgba(255, 255, 255, 10));
+    // Liquid Glass Translucent Slate Grey Surface (rgba(18, 20, 26, 0.72))
+    b.fill(a, x + 1.0, y + 1.0, w - 2.0, 18.0, rgba(18, 20, 26, 184));
+    b.text(a, label, x + 4.0, y + 6.0, rgba(244, 244, 246, 255), true);
 }
 
 #[cfg(test)]

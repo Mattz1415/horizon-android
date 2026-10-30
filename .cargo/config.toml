@@ -1,0 +1,23 @@
+[target.aarch64-linux-android]
+rustflags = [
+    "-C", "link-arg=-Wl,-z,max-page-size=16384",
+    "-C", "link-arg=-Wl,--gc-sections",
+    "-C", "target-cpu=generic",
+]
+
+[target.x86_64-linux-android]
+rustflags = [
+    "-C", "link-arg=-Wl,-z,max-page-size=16384",
+    "-C", "link-arg=-Wl,--gc-sections",
+]
+
+[build]
+target = "aarch64-linux-android"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "unwind"
+strip = false
+debug = 1

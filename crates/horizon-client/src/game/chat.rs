@@ -1191,6 +1191,10 @@ impl Game<'_> {
         };
         #[cfg(target_os = "android")]
         if result.is_ok() {
+            if let Ok(bytes) = std::fs::read(&path) {
+                let filename = path.file_name().unwrap_or_default().to_string_lossy();
+                let _ = crate::android_bridge::save_screenshot_to_mediastore(&bytes, &filename);
+            }
             if let Err(error) = crate::gallery::save(&path) {
                 self.system_message(Text::literal(error));
             }

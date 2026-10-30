@@ -49,6 +49,16 @@ mod search_queue;
 mod secure_store;
 #[path = "android/shader_catalog.rs"]
 mod shader_catalog;
+#[path = "android/android_init.rs"]
+pub mod android_init;
+#[path = "android/chunk_builder.rs"]
+pub mod chunk_builder;
+#[path = "android/gui_pipeline.rs"]
+pub mod gui_pipeline;
+#[path = "android/touch_controls.rs"]
+pub mod touch_controls;
+#[path = "android/android_bridge.rs"]
+pub mod android_bridge;
 #[rustfmt::skip]
 #[allow(dead_code)]
 #[path = "../../../launcher/src/skins.rs"]
@@ -216,6 +226,8 @@ fn android_main(app: AndroidApp) {
         log::error!("Android supplied no application data directory");
         return;
     };
+    let resources_dir = home.join("resources/26.3");
+    android_init::initialize_engine_environment(&home, &resources_dir, 4);
     backend::initialize(home.clone());
     if let Ok(vm) = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr().cast()) } {
         secure_store::initialize(vm);

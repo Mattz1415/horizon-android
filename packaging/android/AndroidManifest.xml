@@ -1,29 +1,91 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    package="dev.horizon.android">
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+
     <uses-feature android:name="android.hardware.vulkan.level" android:version="1" android:required="false" />
-    <uses-feature android:glEsVersion="0x00030000" android:required="true" />
-    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:glEsVersion="0x00030001" android:required="true" />
+    <uses-feature android:name="android.hardware.touchscreen" android:required="true" />
     <uses-feature android:name="android.software.leanback" android:required="false" />
-    <application android:label="Horizon Android" android:appCategory="game" android:icon="@drawable/launcher_icon" android:banner="@drawable/tv_banner" android:extractNativeLibs="true" android:usesCleartextTraffic="false">
-        <provider android:name="dev.horizon.android.HorizonDocumentsProvider" android:authorities="${applicationId}.documents" android:exported="true" android:grantUriPermissions="true" android:permission="android.permission.MANAGE_DOCUMENTS">
+
+    <application
+        android:label="Horizon Android"
+        android:appCategory="game"
+        android:icon="@drawable/launcher_icon"
+        android:banner="@drawable/tv_banner"
+        android:extractNativeLibs="true"
+        android:usesCleartextTraffic="false"
+        android:requestLegacyExternalStorage="false"
+        android:hardwareAccelerated="true"
+        tools:targetApi="35">
+
+        <!-- Storage Access Framework Documents Provider -->
+        <provider
+            android:name="dev.horizon.android.HorizonDocumentsProvider"
+            android:authorities="${applicationId}.documents"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
             <intent-filter>
                 <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
             </intent-filter>
         </provider>
-        <activity android:name="dev.horizon.android.HorizonActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|keyboardHidden|keyboard|density|screenLayout" android:windowSoftInputMode="adjustResize" android:theme="@style/HorizonGameTheme">
-            <meta-data android:name="android.app.lib_name" android:value="horizon_android" />
-        </activity>
-        <!-- Keep installed launcher shortcuts targeting the previous component. -->
-        <activity-alias android:name="com.google.androidgamesdk.GameActivity" android:targetActivity="dev.horizon.android.HorizonActivity" android:exported="true">
-            <meta-data android:name="android.app.lib_name" android:value="horizon_android" />
+
+        <!-- Process 1: Default Process Launcher Activity (Flutter UI) -->
+        <activity
+            android:name="dev.horizon.android.LauncherActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/HorizonGameTheme"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
+            android:hardwareAccelerated="true"
+            android:windowSoftInputMode="adjustResize"
+            android:screenOrientation="sensorLandscape">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
-        </activity-alias>
+        </activity>
+
+        <!-- Process 2: Isolated Game Process (:game) running Native Rust Engine -->
+        <activity
+            android:name="dev.horizon.android.HorizonGameActivity"
+            android:process=":game"
+            android:exported="false"
+            android:documentLaunchMode="intoExisting"
+            android:launchMode="singleTask"
+            android:screenOrientation="sensorLandscape"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|navigation"
+            android:theme="@style/HorizonGameTheme"
+            android:resizeableActivity="false">
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="horizon_android" />
+        </activity>
+
+        <!-- Foreground Service running inside the :game process for lifecycle pinning -->
+        <service
+            android:name="dev.horizon.android.GameService"
+            android:process=":game"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="High-performance Rust 3D game engine and server simulation" />
+        </service>
+
+        <receiver
+            android:name="dev.horizon.android.GameService$KillReceiver"
+            android:process=":game"
+            android:exported="false" />
+
     </application>
 </manifest>

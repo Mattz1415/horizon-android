@@ -1503,8 +1503,8 @@ impl HudRenderer {
                 primitive: Default::default(),
                 depth_stencil: depth.then_some(wgpu::DepthStencilState {
                     format: wgpu::TextureFormat::Depth32Float,
-                    depth_write_enabled: Some(true),
-                    depth_compare: Some(wgpu::CompareFunction::LessEqual),
+                    depth_write_enabled: Some(false),
+                    depth_compare: Some(wgpu::CompareFunction::Always),
                     stencil: Default::default(),
                     bias: Default::default(),
                 }),
@@ -1676,6 +1676,17 @@ impl HudRenderer {
     ) {
         if let Some(texture) = &self.atlas_texture {
             for p in &batch.patches {
+                let pixel_data: std::borrow::Cow<[u8]> = if p.rgba.len() == (p.width * p.height) as usize {
+                    // Mobile GPU fix (Adreno 619 / Mali): convert 1-channel alpha to 4-channel Rgba8Unorm
+                    let mut expanded = Vec::with_capacity((p.width * p.height * 4) as usize);
+                    for &a in &p.rgba {
+                        expanded.extend_from_slice(&[255, 255, 255, a]);
+                    }
+                    std::borrow::Cow::Owned(expanded)
+                } else {
+                    std::borrow::Cow::Borrowed(&p.rgba)
+                };
+
                 uploads.texture(
                     encoder,
                     wgpu::TexelCopyTextureInfo {
@@ -1690,7 +1701,7 @@ impl HudRenderer {
                     },
                     p.width,
                     p.height,
-                    &p.rgba,
+                    &pixel_data,
                 );
             }
         }
