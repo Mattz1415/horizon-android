@@ -36,6 +36,14 @@ object HorizonNativeBridge {
         }
     }
 
+    fun safeSendCursorPos(x: Float, y: Float) {
+        try {
+            nativeSendCursorPos(x, y)
+        } catch (e: Throwable) {
+            Log.w(TAG, "nativeSendCursorPos notice: ${e.message}")
+        }
+    }
+
     fun safeSendMouseButton(button: Int, isPressed: Boolean) {
         try {
             nativeSendMouseButton(button, isPressed)
@@ -45,5 +53,6 @@ object HorizonNativeBridge {
     }
 
     private external fun nativeSendMouseMotion(deltaX: Float, deltaY: Float)
+    private external fun nativeSendCursorPos(x: Float, y: Float)
     private external fun nativeSendMouseButton(button: Int, isPressed: Boolean)
 }

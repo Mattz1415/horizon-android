@@ -1,5 +1,6 @@
 package dev.playhorizon.launcher
 
+import android.annotation.SuppressLint
 import android.app.NativeActivity
 import android.content.Context
 import android.content.Intent
@@ -19,10 +20,12 @@ import android.view.ViewGroup
 import android.view.WindowInsets
 import android.view.WindowInsetsController
 import android.view.WindowManager
+import android.view.inputmethod.InputMethodManager
 import android.widget.Button
 import android.widget.Toast
 import dev.playhorizon.launcher.core.AssetManagerService
 import dev.playhorizon.launcher.core.HorizonNativeBridge
+import dev.playhorizon.launcher.ui.VirtualTouchpadView
 
 class GameActivity : NativeActivity() {
 
@@ -33,9 +36,9 @@ class GameActivity : NativeActivity() {
 
     private lateinit var assetManager: AssetManagerService
     private var vibrator: Vibrator? = null
+    private var touchpadView: VirtualTouchpadView? = null
 
-    private var lastTouchX = 0f
-    private var lastTouchY = 0f
+    private var isGuiVisible = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,10 +56,8 @@ class GameActivity : NativeActivity() {
 
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
 
-        // Inflate virtual touch controls overlay and add on top of native surface
+        // Inflate virtual controls overlay and add on top of native surface
         val overlayView = LayoutInflater.from(this).inflate(R.layout.activity_game, null)
-        overlayView.findViewById<View>(R.id.gameSurfaceView)?.visibility = View.GONE
-
         addContentView(
             overlayView,
             ViewGroup.LayoutParams(
@@ -65,8 +66,12 @@ class GameActivity : NativeActivity() {
             )
         )
 
-        setupTouchControls(overlayView)
-        setupCameraLookArea(overlayView)
+        touchpadView = overlayView.findViewById(R.id.virtualTouchpadView)
+
+        setupTouchpadInterceptor(overlayView)
+        setupTopBarControls(overlayView)
+        setupMovementControls(overlayView)
+        setupActionControls(overlayView)
     }
 
     private fun checkAndRequestStoragePermissions() {
@@ -133,6 +138,14 @@ class GameActivity : NativeActivity() {
         } catch (ignored: Exception) {}
     }
 
+    @SuppressLint("ClickableViewAccessibility")
+    private fun setupTouchpadInterceptor(root: View) {
+        root.setOnTouchListener { _, event ->
+            touchpadView?.handleTouchEvent(event) ?: false
+        }
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
     private fun bindKeyButton(overlay: View, buttonId: Int, androidKeyCode: Int) {
         val button = overlay.findViewById<Button>(buttonId)
         button?.setOnTouchListener { _, event ->
@@ -153,6 +166,7 @@ class GameActivity : NativeActivity() {
         }
     }
 
+    @SuppressLint("ClickableViewAccessibility")
     private fun bindMouseButton(overlay: View, buttonId: Int, mouseButton: Int) {
         val button = overlay.findViewById<Button>(buttonId)
         button?.setOnTouchListener { _, event ->
@@ -171,45 +185,82 @@ class GameActivity : NativeActivity() {
         }
     }
 
-    private fun setupTouchControls(overlay: View) {
-        // Left Virtual D-Pad
+    private fun setupTopBarControls(overlay: View) {
+        // 1. GUI Button: Hide / Show on-screen controls
+        val btnGui = overlay.findViewById<Button>(R.id.btnGui)
+        val leftControls = overlay.findViewById<View>(R.id.leftControlsContainer)
+        val rightControls = overlay.findViewById<View>(R.id.rightControlsContainer)
+        val topBar = overlay.findViewById<ViewGroup>(R.id.topBar)
+
+        btnGui?.setOnClickListener {
+            triggerHaptic()
+            isGuiVisible = !isGuiVisible
+            val newVisibility = if (isGuiVisible) View.VISIBLE else View.GONE
+            leftControls?.visibility = newVisibility
+            rightControls?.visibility = newVisibility
+
+            // Hide other buttons on top bar, keep only GUI button
+            topBar?.let { bar ->
+                for (i in 0 until bar.childCount) {
+                    val child = bar.getChildAt(i)
+                    if (child.id != R.id.btnGui) {
+                        child.visibility = newVisibility
+                    }
+                }
+            }
+            btnGui.alpha = if (isGuiVisible) 1.0f else 0.45f
+        }
+
+        // 2. MOUSE Button: Toggle Virtual Mouse pointer mode
+        val btnMouse = overlay.findViewById<Button>(R.id.btnMouse)
+        btnMouse?.setOnClickListener {
+            triggerHaptic()
+            touchpadView?.let { tp ->
+                tp.isMouseMode = !tp.isMouseMode
+                if (tp.isMouseMode) {
+                    btnMouse.setBackgroundResource(R.drawable.bg_control_button_active)
+                    Toast.makeText(this, "Virtual Mouse ON (Touchpad)", Toast.LENGTH_SHORT).show()
+                } else {
+                    btnMouse.setBackgroundResource(R.drawable.bg_control_button)
+                    Toast.makeText(this, "Virtual Mouse OFF (Camera Look)", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+
+        // 3. KBD Button: Open Android Soft Keyboard
+        val btnKbd = overlay.findViewById<Button>(R.id.btnKbd)
+        btnKbd?.setOnClickListener {
+            triggerHaptic()
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+            imm?.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0)
+        }
+
+        // 4. Utility Keys
+        bindKeyButton(overlay, R.id.btnEsc, KeyEvent.KEYCODE_ESCAPE)
+        bindKeyButton(overlay, R.id.btnF3, KeyEvent.KEYCODE_F3)
+        bindKeyButton(overlay, R.id.btnF5, KeyEvent.KEYCODE_F5)
+        bindKeyButton(overlay, R.id.btnChat, KeyEvent.KEYCODE_T)
+        bindKeyButton(overlay, R.id.btnTab, KeyEvent.KEYCODE_TAB)
+        bindKeyButton(overlay, R.id.btnInv, KeyEvent.KEYCODE_E)
+    }
+
+    private fun setupMovementControls(overlay: View) {
+        // D-Pad Movement (W, A, S, D + Sneak/Shift)
         bindKeyButton(overlay, R.id.btnUp, KeyEvent.KEYCODE_W)
         bindKeyButton(overlay, R.id.btnLeft, KeyEvent.KEYCODE_A)
         bindKeyButton(overlay, R.id.btnDown, KeyEvent.KEYCODE_S)
         bindKeyButton(overlay, R.id.btnRight, KeyEvent.KEYCODE_D)
         bindKeyButton(overlay, R.id.btnSneak, KeyEvent.KEYCODE_SHIFT_LEFT)
 
-        // Right Action Buttons
-        bindKeyButton(overlay, R.id.btnJump, KeyEvent.KEYCODE_SPACE)
-        bindMouseButton(overlay, R.id.btnAttack, HorizonNativeBridge.MOUSE_LEFT)
-        bindMouseButton(overlay, R.id.btnPlace, HorizonNativeBridge.MOUSE_RIGHT)
-
-        // Top Utility Buttons
-        bindKeyButton(overlay, R.id.btnEsc, KeyEvent.KEYCODE_ESCAPE)
-        bindKeyButton(overlay, R.id.btnF3, KeyEvent.KEYCODE_F3)
-        bindKeyButton(overlay, R.id.btnChat, KeyEvent.KEYCODE_T)
-        bindKeyButton(overlay, R.id.btnInv, KeyEvent.KEYCODE_E)
+        // SPRINT Button (Ctrl)
+        bindKeyButton(overlay, R.id.btnSprint, KeyEvent.KEYCODE_CTRL_LEFT)
     }
 
-    private fun setupCameraLookArea(overlay: View) {
-        val cameraArea = overlay.findViewById<View>(R.id.touchCameraArea)
-        cameraArea?.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    lastTouchX = event.x
-                    lastTouchY = event.y
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    val deltaX = (event.x - lastTouchX) * 1.5f
-                    val deltaY = (event.y - lastTouchY) * 1.5f
-                    HorizonNativeBridge.safeSendMouseMotion(deltaX, deltaY)
-                    lastTouchX = event.x
-                    lastTouchY = event.y
-                    true
-                }
-                else -> false
-            }
-        }
+    private fun setupActionControls(overlay: View) {
+        // Action Buttons (PRI, SEC, JUMP, DROP)
+        bindMouseButton(overlay, R.id.btnAttack, HorizonNativeBridge.MOUSE_LEFT)
+        bindMouseButton(overlay, R.id.btnPlace, HorizonNativeBridge.MOUSE_RIGHT)
+        bindKeyButton(overlay, R.id.btnJump, KeyEvent.KEYCODE_SPACE)
+        bindKeyButton(overlay, R.id.btnDrop, KeyEvent.KEYCODE_Q)
     }
 }

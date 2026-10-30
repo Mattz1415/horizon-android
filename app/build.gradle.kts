@@ -11,8 +11,8 @@ android {
         applicationId = "dev.playhorizon.launcher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 8
-        versionName = "2.4.0-native-engine-direct"
+        versionCode = 9
+        versionName = "2.5.0-virtual-mouse-controls"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
