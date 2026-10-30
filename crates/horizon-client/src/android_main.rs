@@ -85,7 +85,7 @@ mod backend {
     }
 }
 
-use std::cell::RefCell;
+use std::{cell::RefCell, path::PathBuf};
 pub(crate) fn keyboard_mouse_input() -> bool {
     horizon_client::android_runtime::active_input() == catalog::InputHost::KeyboardMouse
 }
@@ -157,11 +157,18 @@ pub(crate) fn android_event_loop() -> Result<EventLoop<()>, winit::error::EventL
 pub(crate) fn android_arguments() -> horizon_client::Result<Vec<String>> {
     let home = APP.with(|app| app.borrow().as_ref().unwrap().internal_data_path().unwrap());
     let config = catalog::Config::load(&home);
+    let res_dir = std::env::var("HORIZON_RESOURCES_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| {
+            if home.join("resources/26.3").exists() {
+                home.join("resources/26.3")
+            } else {
+                home.join(".local/horizon-client/26.3")
+            }
+        });
     let mut args = vec![
         "--resources".into(),
-        home.join(".local/horizon-client/26.3")
-            .to_string_lossy()
-            .into_owned(),
+        res_dir.to_string_lossy().into_owned(),
     ];
     if !PUBLIC_BUILD {
         args.extend([
@@ -174,6 +181,10 @@ pub(crate) fn android_arguments() -> horizon_client::Result<Vec<String>> {
             "--session-file".into(),
             session.to_string_lossy().into_owned(),
         ]);
+    } else if let Ok(custom_name) = std::env::var("HORIZON_USERNAME") {
+        if !custom_name.is_empty() {
+            args.extend(["--name".into(), custom_name]);
+        }
     } else if !config.name.is_empty() {
         // Offline identity must never override a licensed session's profile.
         args.extend(["--name".into(), config.name.clone()]);
@@ -272,19 +283,34 @@ fn android_main(app: AndroidApp) {
             log::error!("Cannot unpack engine data: {error}");
         }
     }
-    let mut launcher = launcher::Launcher::new(home.clone());
-    let result = android_event_loop()
-        .map_err(|e| -> Box<dyn std::error::Error> { e.into() })
-        .and_then(|events| events.run_app(&mut launcher).map_err(Into::into));
+    let direct_game = std::env::var("HORIZON_DIRECT_GAME").map(|v| v != "0").unwrap_or(true);
+    let result = if direct_game {
+        log::info!("Directly booting into Minecraft 26.3 game simulation...");
+        match game::android_game() {
+            Ok(mut game_app) => {
+                android_event_loop()
+                    .map_err(|e| -> Box<dyn std::error::Error> { e.into() })
+                    .and_then(|events| events.run_app(&mut game_app).map_err(Into::into))
+            }
+            Err(error) => {
+                log::warn!("Direct game boot failed ({error}), falling back to internal launcher");
+                let mut launcher = launcher::Launcher::new(home.clone());
+                android_event_loop()
+                    .map_err(|e| -> Box<dyn std::error::Error> { e.into() })
+                    .and_then(|events| events.run_app(&mut launcher).map_err(Into::into))
+            }
+        }
+    } else {
+        let mut launcher = launcher::Launcher::new(home.clone());
+        android_event_loop()
+            .map_err(|e| -> Box<dyn std::error::Error> { e.into() })
+            .and_then(|events| events.run_app(&mut launcher).map_err(Into::into))
+    };
     if let Err(error) = result {
         log::error!("Horizon: {error}");
         horizon_client::crash::report_error(&home, "client", &*error);
         let _ = std::fs::write(home.join("android-error.txt"), error.to_string());
     }
-    // Winit permits one EventLoop per process. NativeActivity otherwise keeps
-    // this process cached after Quit, making the next launch fail. run_app's
-    // exiting callback has completed the world save before we get here.
-    drop(launcher);
     platform::finish();
     APP.with(|slot| *slot.borrow_mut() = None);
     std::process::exit(0);

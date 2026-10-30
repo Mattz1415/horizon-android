@@ -52,6 +52,18 @@ class MainActivity : FlutterActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         currentInstance = this
+        shieldFromGallery(filesDir)
+        shieldFromGallery(File(filesDir, "resources"))
+        shieldFromGallery(File(filesDir, "resources/26.3"))
+        shieldFromGallery(File(filesDir, "game_data"))
+    }
+
+    private fun shieldFromGallery(dir: File) {
+        try {
+            if (!dir.exists()) dir.mkdirs()
+            val nomedia = File(dir, ".nomedia")
+            if (!nomedia.exists()) nomedia.createNewFile()
+        } catch (_: Exception) {}
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

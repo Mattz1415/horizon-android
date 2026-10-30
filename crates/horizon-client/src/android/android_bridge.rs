@@ -112,6 +112,11 @@ pub extern "system" fn Java_dev_horizon_android_HorizonGameActivity_nativeInitEn
         threads as usize,
     );
 
+    unsafe {
+        std::env::set_var("HORIZON_RESOURCES_DIR", &resources_path);
+        std::env::set_var("HORIZON_DIRECT_GAME", "1");
+    }
+
     log::info!(
         "[HorizonBridge] Native environment initialized. Touch scheme: {}",
         touch_scheme
