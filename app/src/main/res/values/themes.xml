@@ -5,8 +5,8 @@
         <item name="android:windowBackground">@color/bg_oled_black</item>
         <item name="android:statusBarColor">@color/bg_oled_black</item>
         <item name="android:navigationBarColor">@color/bg_oled_black</item>
-        <item name="colorPrimary">@color/neon_cyan</item>
-        <item name="colorSecondary">@color/neon_azure</item>
+        <item name="colorPrimary">@color/text_primary</item>
+        <item name="colorSecondary">@color/text_secondary</item>
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
     </style>

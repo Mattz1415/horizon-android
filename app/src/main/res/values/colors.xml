@@ -22,6 +22,8 @@
     <color name="text_secondary">#D4D4D8</color>
     <color name="text_muted">#71717A</color>
     <color name="text_faint">#3F3F46</color>
+    <color name="neon_cyan">#FFFFFF</color>
+    <color name="neon_azure">#D4D4D8</color>
 
     <!-- CTA High-Contrast Mono Button -->
     <color name="btn_play_bg">#FFFFFF</color>
