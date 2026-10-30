@@ -85,5 +85,3 @@ dependencies {
     // JSON serialization
     implementation 'org.json:json:20240303'
 }
-
-layout.buildDirectory = file('../../.local/android/gradle-build')

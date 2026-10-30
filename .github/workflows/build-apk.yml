@@ -86,7 +86,7 @@ jobs:
       - name: Stage Artifacts
         run: |
           mkdir -p dist
-          find packaging/android -name "*.apk" -exec cp {} dist/ \;
+          find . -name "*.apk" -not -path "*/dist/*" -exec cp {} dist/ \;
           ls -lh dist/
 
       - name: Upload Horizon Android APKs
