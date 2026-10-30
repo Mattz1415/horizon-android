@@ -159,8 +159,10 @@ pub fn save_screenshot_to_mediastore(png_bytes: &[u8], filename: &str) -> bool {
                         "([BLjava/lang/String;)Z",
                         &[JValue::Object(&byte_array), JValue::Object(&j_filename)],
                     );
-                    if let Ok(JValue::Bool(b)) = result {
-                        return b != 0;
+                    if let Ok(val) = result {
+                        if let Ok(b) = val.z() {
+                            return b;
+                        }
                     }
                 }
             }

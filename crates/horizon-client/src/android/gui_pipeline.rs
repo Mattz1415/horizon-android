@@ -57,7 +57,7 @@ pub fn create_gui_render_pipeline(
             module: shader_module,
             entry_point: Some("vs_gui_main"),
             compilation_options: PipelineCompilationOptions::default(),
-            buffers: &[VertexBufferLayout {
+            buffers: &[Some(VertexBufferLayout {
                 array_stride: 36, // pos(8) + uv(8) + color(16) + depth(4)
                 step_mode: VertexStepMode::Vertex,
                 attributes: &[
@@ -82,7 +82,7 @@ pub fn create_gui_render_pipeline(
                         shader_location: 3,
                     },
                 ],
-            }],
+            })],
         },
         primitive: PrimitiveState {
             topology: PrimitiveTopology::TriangleList,
