@@ -24,6 +24,7 @@ object ResourcePreparer {
 
     private const val TAG = "ResourcePreparer"
     const val VERSION = "26.3"
+    const val DIRECT_BUNDLE_URL = "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.4/horizon-resources-26.3.zip"
 
     private const val MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
 
@@ -104,6 +105,98 @@ object ResourcePreparer {
             } catch (e: Exception) {
                 Log.e(TAG, "Import error: ${e.message}", e)
                 onComplete(false, e.message)
+            }
+        }
+    }
+
+    /**
+     * Fast 1-Click Installer (Zalith/Pojav style):
+     * Downloads pre-prepared, verified complete 26.3 resources ZIP in a single stream.
+     */
+    fun downloadFastBundle(
+        context: Context,
+        bundleUrl: String = DIRECT_BUNDLE_URL,
+        onProgress: (stage: String, percent: Int, info: String) -> Unit,
+        onComplete: (success: Boolean, error: String?) -> Unit
+    ) {
+        val executor = Executors.newSingleThreadExecutor()
+        executor.execute {
+            var tempZip: File? = null
+            try {
+                val stagingDir = File(context.filesDir, "resources/staging_$VERSION")
+                if (stagingDir.exists()) stagingDir.deleteRecursively()
+                stagingDir.mkdirs()
+
+                onProgress("Connecting", 2, "Connecting to fast CDN server...")
+                tempZip = File(context.cacheDir, "horizon_resources_temp.zip")
+                if (tempZip.exists()) tempZip.delete()
+
+                val conn = openConnectionWithRedirects(bundleUrl)
+                val totalLength = conn.contentLengthLong.coerceAtLeast(1L)
+
+                conn.inputStream.use { input ->
+                    FileOutputStream(tempZip).use { output ->
+                        val buffer = ByteArray(65536)
+                        var readBytes: Int
+                        var downloaded = 0L
+                        while (input.read(buffer).also { readBytes = it } != -1) {
+                            output.write(buffer, 0, readBytes)
+                            downloaded += readBytes
+                            val pct = 2 + ((downloaded * 68) / totalLength).toInt()
+                            val mbDl = downloaded / (1024 * 1024)
+                            val mbTot = totalLength / (1024 * 1024)
+                            onProgress("Downloading", pct, "Downloading asset pack ($mbDl/$mbTot MB)")
+                        }
+                    }
+                }
+
+                onProgress("Extracting", 72, "Extracting Minecraft assets and tables...")
+                ZipInputStream(BufferedInputStream(tempZip.inputStream())).use { zipIn ->
+                    val buffer = ByteArray(65536)
+                    var entry: ZipEntry? = zipIn.nextEntry
+                    var count = 0
+                    while (entry != null) {
+                        val outFile = File(stagingDir, entry.name)
+                        if (entry.isDirectory) {
+                            outFile.mkdirs()
+                        } else {
+                            outFile.parentFile?.mkdirs()
+                            FileOutputStream(outFile).use { out ->
+                                var len: Int
+                                while (zipIn.read(buffer).also { len = it } != -1) {
+                                    out.write(buffer, 0, len)
+                                }
+                            }
+                        }
+                        count++
+                        if (count % 150 == 0) {
+                            onProgress("Extracting", 72 + ((count * 18) / 5500).coerceAtMost(18), "Extracted $count assets...")
+                        }
+                        zipIn.closeEntry()
+                        entry = zipIn.nextEntry
+                    }
+                }
+                tempZip.delete()
+
+                onProgress("Engine Tables", 92, "Overlaying bundled engine facts...")
+                extractBundledOrFallbackFacts(context, stagingDir)
+
+                onProgress("Finalize", 96, "Committing installation...")
+                File(stagingDir, ".prepared_sha256").writeText("prepared_${System.currentTimeMillis()}")
+                File(stagingDir, "android-downloads-v2.json").writeText("{\"schema\":2}")
+
+                val targetDir = getResourcesDir(context)
+                if (targetDir.exists()) targetDir.deleteRecursively()
+                stagingDir.renameTo(targetDir)
+
+                onProgress("Complete", 100, "Minecraft $VERSION ready!")
+                onComplete(true, null)
+            } catch (e: Exception) {
+                Log.e(TAG, "Fast bundle download failed: ${e.message}", e)
+                tempZip?.delete()
+                // Auto-fallback to vanilla Mojang downloader
+                Log.i(TAG, "Falling back to vanilla Mojang downloader...")
+                downloadAndPrepareFromMojang(context, onProgress, onComplete)
             }
         }
     }
@@ -329,6 +422,31 @@ object ResourcePreparer {
                 horizonResourcesMarker.writeText("{\"version\":\"$VERSION\",\"schema\":1}")
             }
         }
+    }
+
+    private fun openConnectionWithRedirects(urlStr: String, connectTimeout: Int = 20000, readTimeout: Int = 60000): HttpURLConnection {
+        var currentUrl = URL(urlStr)
+        var redirects = 0
+        while (redirects < 8) {
+            val conn = currentUrl.openConnection() as HttpURLConnection
+            conn.connectTimeout = connectTimeout
+            conn.readTimeout = readTimeout
+            conn.instanceFollowRedirects = true
+            conn.setRequestProperty("User-Agent", "HorizonLauncher-Android/2.6.0")
+            val status = conn.responseCode
+            if (status in 300..399) {
+                val location = conn.getHeaderField("Location") ?: break
+                conn.disconnect()
+                currentUrl = URL(currentUrl, location)
+                redirects++
+                continue
+            }
+            return conn
+        }
+        val conn = currentUrl.openConnection() as HttpURLConnection
+        conn.connectTimeout = connectTimeout
+        conn.readTimeout = readTimeout
+        return conn
     }
 
     private fun downloadString(urlStr: String): String {

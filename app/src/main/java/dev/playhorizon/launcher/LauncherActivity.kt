@@ -150,7 +150,7 @@ class LauncherActivity : AppCompatActivity() {
         btnDownloadMojang.isEnabled = false
         btnImportZip.isEnabled = false
 
-        ResourcePreparer.downloadAndPrepareFromMojang(
+        ResourcePreparer.downloadFastBundle(
             context = this,
             onProgress = { stage, percent, info ->
                 runOnUiThread {
