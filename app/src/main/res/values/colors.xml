@@ -1,24 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Pure OLED Dark & Neon Cyan Identity -->
+    <!-- 100% OLED Monochrome Liquid Glass Design System (Abu Hitam) -->
+    <!-- Pillar 1 & 2 of Nexus-Max: Pure Black + Layered Carbons -->
     <color name="bg_oled_black">#000000</color>
-    <color name="bg_acrylic_glass">#D9101218</color>
-    <color name="bg_card">#161922</color>
+    <color name="carbon_deep">#0A0A0C</color>
+    <color name="carbon_surface">#121214</color>
+    <color name="carbon_card">#18181B</color>
+    <color name="carbon_elevated">#1C1C1E</color>
+    <color name="carbon_pill">#27272A</color>
+    <color name="carbon_border">#2C2C2E</color>
 
-    <color name="neon_cyan">#00F0FF</color>
-    <color name="neon_azure">#0080FF</color>
-    <color name="neon_cyan_glow">#3300F0FF</color>
+    <!-- Liquid Glass Translucency & Specular Highlights -->
+    <color name="glass_fill">#1AFFFFFF</color>
+    <color name="glass_fill_subtle">#0DFFFFFF</color>
+    <color name="glass_border">#26FFFFFF</color>
+    <color name="glass_border_active">#59FFFFFF</color>
+    <color name="glass_specular">#4DFFFFFF</color>
 
-    <color name="glass_border">#2EFFFFFF</color>
-    <color name="glass_border_active">#8000F0FF</color>
+    <!-- Monochromatic Typography & Icons -->
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#D4D4D8</color>
+    <color name="text_muted">#71717A</color>
+    <color name="text_faint">#3F3F46</color>
 
-    <color name="text_primary">#F0F4F8</color>
-    <color name="text_secondary">#8C9BAE</color>
-    <color name="text_muted">#526071</color>
+    <!-- CTA High-Contrast Mono Button -->
+    <color name="btn_play_bg">#FFFFFF</color>
+    <color name="btn_play_text">#000000</color>
+    <color name="btn_play_pressed">#D4D4D8</color>
 
-    <!-- Touch Controls Colors -->
-    <color name="control_btn_bg">#4D0B0E14</color>
-    <color name="control_btn_pressed">#8000F0FF</color>
-    <color name="control_btn_border">#5900F0FF</color>
-    <color name="control_text">#E0F7FA</color>
+    <!-- Touch Controls (Abu Hitam Frosted Glass) -->
+    <color name="control_btn_bg">#331C1C1E</color>
+    <color name="control_btn_pressed">#66FFFFFF</color>
+    <color name="control_btn_border">#26FFFFFF</color>
+    <color name="control_text">#FFFFFF</color>
 </resources>

@@ -147,6 +147,11 @@ class GameActivity : AppCompatActivity(), SurfaceHolder.Callback {
         bindKeyButton(findViewById(R.id.btnF3), HorizonNativeBridge.KEY_F3)
         bindKeyButton(findViewById(R.id.btnChat), HorizonNativeBridge.KEY_T)
         bindKeyButton(findViewById(R.id.btnInv), HorizonNativeBridge.KEY_E)
+
+        findViewById<Button>(R.id.btnSwitchX11)?.setOnClickListener {
+            triggerHaptic()
+            dev.playhorizon.launcher.core.LaunchManager.launchHorizon(this, useTouchOverlay = false)
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")

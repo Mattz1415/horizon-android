@@ -1,10 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Permissions required for Termux execution, networking, and haptics -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!-- Package Visibility for Android 11+ to query & launch Termux & Termux:X11 -->
+    <queries>
+        <package android:name="com.termux" />
+        <package android:name="com.termux.x11" />
+        <intent>
+            <action android:name="com.termux.RUN_COMMAND" />
+        </intent>
+    </queries>
 
     <application
         android:allowBackup="true"
@@ -14,12 +25,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.HorizonLauncher">
 
-        <!-- Main Launcher Screen -->
+        <!-- Main Launcher Screen (Monochrome Liquid Glass Architecture) -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="sensorLandscape"
-            android:configChanges="orientation|screenSize|keyboardHidden">
+            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout|uiMode">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

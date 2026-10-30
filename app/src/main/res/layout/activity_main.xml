@@ -5,199 +5,266 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg_oled_black"
-    android:padding="24dp">
+    android:paddingHorizontal="28dp"
+    android:paddingVertical="20dp">
 
-    <!-- Top Header Bar -->
+    <!-- 1. Top Translucent Header (SliverAppBar Style) -->
     <LinearLayout
         android:id="@+id/headerLayout"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <TextView
-            android:id="@+id/tvAppTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="HORIZON"
-            android:textColor="@color/neon_cyan"
-            android:textSize="26sp"
-            android:textStyle="bold"
-            android:letterSpacing="0.08" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="8dp"
-            android:text="RUST EDITION"
-            android:textColor="@color/text_secondary"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:background="#2200F0FF"
-            android:paddingHorizontal="6dp"
-            android:paddingVertical="2dp" />
-    </LinearLayout>
-
-    <TextView
-        android:id="@+id/tvTagline"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/title_tagline"
-        android:textColor="@color/text_muted"
-        android:textSize="12sp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/headerLayout" />
-
-    <!-- Content Grid: Left Column (Profile & Settings) -->
-    <LinearLayout
-        android:id="@+id/leftColumn"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:orientation="vertical"
-        android:layout_marginTop="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="16dp"
-        app:layout_constraintWidth_percent="0.48"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvTagline"
-        app:layout_constraintBottom_toTopOf="@id/bottomBar">
-
-        <!-- Profile Glass Card -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:background="@drawable/bg_glass_card"
-            android:padding="16dp"
-            android:orientation="vertical"
-            android:layout_marginBottom="12dp">
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/tvAppTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="HORIZON"
+                android:textColor="@color/text_primary"
+                android:textSize="24sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.08" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/label_profile"
+                android:layout_marginStart="10dp"
+                android:text="RUST ENGINE"
                 android:textColor="@color/text_secondary"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_glass_pill"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="4dp" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <!-- User Profile Pill (Liquid Glass) -->
+        <LinearLayout
+            android:id="@+id/userProfilePill"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_glass_pill"
+            android:paddingHorizontal="14dp"
+            android:paddingVertical="6dp"
+            android:gravity="center_vertical">
+
+            <View
+                android:layout_width="8dp"
+                android:layout_height="8dp"
+                android:background="@drawable/bg_glass_pill"
+                android:backgroundTint="#FFFFFF" />
+
+            <TextView
+                android:id="@+id/tvUsername"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:text="Mattz • Offline"
+                android:textColor="@color/text_primary"
                 android:textSize="12sp"
                 android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
 
+    <!-- 2. Main Content Grid (Two Columns: 24dp Continuous Squircles) -->
+    <LinearLayout
+        android:id="@+id/mainContentGrid"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:orientation="horizontal"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        android:baselineAligned="false"
+        app:layout_constraintTop_toBottomOf="@id/headerLayout"
+        app:layout_constraintBottom_toTopOf="@id/bottomBar">
+
+        <!-- Left Column: Engine Architecture & GPU Specification -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginEnd="10dp">
+
+            <!-- Card 1: Engine Architecture -->
             <LinearLayout
+                android:id="@+id/cardEngine"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginTop="8dp">
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_glass_card"
+                android:padding="18dp"
+                android:orientation="vertical"
+                android:layout_marginBottom="10dp">
 
                 <TextView
-                    android:id="@+id/tvUsername"
-                    android:layout_width="0dp"
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="@string/default_username"
+                    android:text="ARCHITECTURE"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.06" />
+
+                <TextView
+                    android:id="@+id/tvEngineTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Horizon 0.1.0 (ARM64 Rust)"
                     android:textColor="@color/text_primary"
-                    android:textSize="16sp"
+                    android:textSize="15sp"
                     android:textStyle="bold" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Offline Mode"
-                    android:textColor="@color/neon_cyan"
-                    android:textSize="11sp" />
+                    android:layout_marginTop="4dp"
+                    android:text="35,723 Block States • 1,658 Items • 67 Biomes"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Card 2: Hardware GPU Acceleration -->
+            <LinearLayout
+                android:id="@+id/cardGpu"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_glass_card"
+                android:padding="18dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="HARDWARE ACCELERATION"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.06" />
+
+                <TextView
+                    android:id="@+id/tvGpuTitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Qualcomm Adreno (TM) 619"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Turnip Vulkan Mesa 27.0 • Direct KGSL (/dev/kgsl-3d0)"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
             </LinearLayout>
         </LinearLayout>
 
-        <!-- Engine & Version Card -->
+        <!-- Right Column: Display Pacing & Launch Configuration -->
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_glass_card"
-            android:padding="16dp"
-            android:orientation="vertical">
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:layout_marginStart="10dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/label_engine"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+            <!-- Card 3: Display & Sync -->
+            <LinearLayout
+                android:id="@+id/cardPacing"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_glass_card"
+                android:padding="18dp"
+                android:orientation="vertical"
+                android:layout_marginBottom="10dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:text="@string/default_engine"
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:textStyle="bold" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="FRAME PACING &amp; VSYNC"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.06" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="35,723 Block States • 1,658 Items • 67 Biomes"
-                android:textColor="@color/text_muted"
-                android:textSize="11sp" />
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Mailbox (Triple Buffering)"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="V-Blank Synchronization • 0 Screen Tearing • 0 Stutter"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Card 4: Launch Settings -->
+            <LinearLayout
+                android:id="@+id/cardLaunchMode"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_glass_card"
+                android:padding="18dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="LAUNCH TARGET"
+                    android:textColor="@color/text_muted"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.06" />
+
+                <TextView
+                    android:id="@+id/tvModeSubtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="Direct Termux:X11 Display (:0)"
+                    android:textColor="@color/text_primary"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Optimized for Qualcomm Snapdragon 695 5G"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Content Grid: Right Column (Graphics Settings) -->
-    <LinearLayout
-        android:id="@+id/rightColumn"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:orientation="vertical"
-        android:layout_marginTop="16dp"
-        android:layout_marginStart="16dp"
-        android:layout_marginBottom="16dp"
-        app:layout_constraintWidth_percent="0.48"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tvTagline"
-        app:layout_constraintBottom_toTopOf="@id/bottomBar">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_glass_card"
-            android:padding="16dp"
-            android:orientation="vertical">
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="@string/label_graphics"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="@string/label_res"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
-                android:text="@string/label_fps"
-                android:textColor="@color/neon_cyan"
-                android:textSize="13sp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Renderer: Vulkan (Mailbox VSync • 0 Stutter)"
-                android:textColor="@color/text_muted"
-                android:textSize="11sp" />
-        </LinearLayout>
-    </LinearLayout>
-
-    <!-- Bottom Action Bar -->
+    <!-- 3. Bottom Action Bar (Monolithic CTA Button) -->
     <LinearLayout
         android:id="@+id/bottomBar"
         android:layout_width="match_parent"
@@ -211,20 +278,34 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="@string/status_ready"
+            android:text="Engine Ready • Qualcomm Adreno 619 Hardware Vulkan"
             android:textColor="@color/text_secondary"
             android:textSize="12sp" />
 
+        <!-- Button 1: Virtual Controls Screen -->
+        <Button
+            android:id="@+id/btnControls"
+            android:layout_width="140dp"
+            android:layout_height="50dp"
+            android:layout_marginEnd="10dp"
+            android:background="@drawable/bg_glass_pill"
+            android:text="CONTROLS"
+            android:textColor="@color/text_primary"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.04" />
+
+        <!-- Button 2: High-Contrast Monolithic Pure White Action Button -->
         <Button
             android:id="@+id/btnPlay"
             android:layout_width="220dp"
-            android:layout_height="52dp"
+            android:layout_height="50dp"
             android:background="@drawable/bg_play_button"
-            android:text="@string/btn_play"
-            android:textColor="#000000"
-            android:textSize="16sp"
+            android:text="PLAY HORIZON"
+            android:textColor="@color/btn_play_text"
+            android:textSize="15sp"
             android:textStyle="bold"
-            android:letterSpacing="0.04" />
+            android:letterSpacing="0.06" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

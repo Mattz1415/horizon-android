@@ -11,8 +11,8 @@ android {
         applicationId = "dev.playhorizon.launcher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.2.0-stable"
+        versionCode = 4
+        versionName = "2.0.0-liquid-glass"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
