@@ -19,8 +19,12 @@ jobs:
 
       - name: Configure Ubuntu Multiarch Repositories (ports.ubuntu.com)
         run: |
-          # Restrict existing mirrors to amd64 to prevent 404 on archive.ubuntu.com
+          # Restrict existing mirrors (both classic and deb822 ubuntu.sources) to amd64
+          if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+            sudo sed -i 's/^Suites:/Architectures: amd64\nSuites:/g' /etc/apt/sources.list.d/ubuntu.sources
+          fi
           sudo sed -i -e 's/deb http/deb [arch=amd64] http/g' /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          sudo sed -i -e 's/deb https/deb [arch=amd64] https/g' /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null || true
           sudo sed -i -e 's/deb \[arch=amd64\] \[arch=amd64\]/deb [arch=amd64]/g' /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null || true
 
           # Add official Ubuntu Ports mirror for arm64 packages
