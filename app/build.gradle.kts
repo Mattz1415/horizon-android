@@ -11,8 +11,8 @@ android {
         applicationId = "dev.playhorizon.launcher"
         minSdk = 26
         targetSdk = 34
-        versionCode = 9
-        versionName = "2.5.0-virtual-mouse-controls"
+        versionCode = 10
+        versionName = "2.5.1-popup-controls-fix"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 

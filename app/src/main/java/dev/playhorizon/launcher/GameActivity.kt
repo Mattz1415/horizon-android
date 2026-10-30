@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.app.NativeActivity
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -12,6 +14,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.Settings
 import android.util.Log
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -22,6 +25,7 @@ import android.view.WindowInsetsController
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.Button
+import android.widget.PopupWindow
 import android.widget.Toast
 import dev.playhorizon.launcher.core.AssetManagerService
 import dev.playhorizon.launcher.core.HorizonNativeBridge
@@ -37,6 +41,7 @@ class GameActivity : NativeActivity() {
     private lateinit var assetManager: AssetManagerService
     private var vibrator: Vibrator? = null
     private var touchpadView: VirtualTouchpadView? = null
+    private var touchControlsPopup: PopupWindow? = null
 
     private var isGuiVisible = true
 
@@ -56,22 +61,55 @@ class GameActivity : NativeActivity() {
 
         vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
 
-        // Inflate virtual controls overlay and add on top of native surface
-        val overlayView = LayoutInflater.from(this).inflate(R.layout.activity_game, null)
-        addContentView(
-            overlayView,
-            ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        )
+        // Attach floating touch controls & virtual mouse on top of NativeActivity surface
+        window.decorView.post {
+            showTouchControlsOverlay()
+        }
+    }
 
-        touchpadView = overlayView.findViewById(R.id.virtualTouchpadView)
+    private fun showTouchControlsOverlay() {
+        if (isFinishing || isDestroyed) return
+        if (touchControlsPopup?.isShowing == true) return
 
-        setupTouchpadInterceptor(overlayView)
-        setupTopBarControls(overlayView)
-        setupMovementControls(overlayView)
-        setupActionControls(overlayView)
+        val decor = window.decorView
+        if (decor.windowToken == null) {
+            decor.postDelayed({ showTouchControlsOverlay() }, 100)
+            return
+        }
+
+        try {
+            val inflater = LayoutInflater.from(this)
+            val overlayView = inflater.inflate(R.layout.activity_game, null)
+
+            val popup = PopupWindow(
+                overlayView,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                WindowManager.LayoutParams.MATCH_PARENT,
+                false
+            ).apply {
+                isTouchable = true
+                isFocusable = false
+                isOutsideTouchable = false
+                isClippingEnabled = false
+                setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    setIsClippedToScreen(false)
+                }
+            }
+
+            popup.showAtLocation(decor, Gravity.TOP or Gravity.START, 0, 0)
+            touchControlsPopup = popup
+
+            touchpadView = overlayView.findViewById(R.id.virtualTouchpadView)
+
+            setupTopBarControls(overlayView)
+            setupMovementControls(overlayView)
+            setupActionControls(overlayView)
+
+            Log.i(TAG, "Virtual touch controls and mouse popup attached successfully!")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error displaying touch controls popup: ${e.message}", e)
+        }
     }
 
     private fun checkAndRequestStoragePermissions() {
@@ -124,7 +162,22 @@ class GameActivity : NativeActivity() {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
             hideSystemUI()
+            if (touchControlsPopup == null || !touchControlsPopup!!.isShowing) {
+                window.decorView.post {
+                    showTouchControlsOverlay()
+                }
+            }
         }
+    }
+
+    override fun onDestroy() {
+        try {
+            if (touchControlsPopup?.isShowing == true) {
+                touchControlsPopup?.dismiss()
+            }
+        } catch (ignored: Exception) {}
+        touchControlsPopup = null
+        super.onDestroy()
     }
 
     private fun triggerHaptic() {
@@ -139,24 +192,19 @@ class GameActivity : NativeActivity() {
     }
 
     @SuppressLint("ClickableViewAccessibility")
-    private fun setupTouchpadInterceptor(root: View) {
-        root.setOnTouchListener { _, event ->
-            touchpadView?.handleTouchEvent(event) ?: false
-        }
-    }
-
-    @SuppressLint("ClickableViewAccessibility")
     private fun bindKeyButton(overlay: View, buttonId: Int, androidKeyCode: Int) {
-        val button = overlay.findViewById<Button>(buttonId)
-        button?.setOnTouchListener { _, event ->
+        val button = overlay.findViewById<Button>(buttonId) ?: return
+        button.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     triggerHaptic()
+                    button.isPressed = true
                     val time = System.currentTimeMillis()
                     dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_DOWN, androidKeyCode, 0))
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    button.isPressed = false
                     val time = System.currentTimeMillis()
                     dispatchKeyEvent(KeyEvent(time, time, KeyEvent.ACTION_UP, androidKeyCode, 0))
                     true
@@ -168,15 +216,17 @@ class GameActivity : NativeActivity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun bindMouseButton(overlay: View, buttonId: Int, mouseButton: Int) {
-        val button = overlay.findViewById<Button>(buttonId)
-        button?.setOnTouchListener { _, event ->
+        val button = overlay.findViewById<Button>(buttonId) ?: return
+        button.setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     triggerHaptic()
+                    button.isPressed = true
                     HorizonNativeBridge.safeSendMouseButton(mouseButton, true)
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    button.isPressed = false
                     HorizonNativeBridge.safeSendMouseButton(mouseButton, false)
                     true
                 }
