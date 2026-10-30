@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/pitch_obsidian</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+
+    <style name="HorizonLauncherTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/pitch_obsidian</item>
+        <item name="android:colorBackground">@color/pitch_obsidian</item>
+        <item name="android:statusBarColor">@color/pitch_obsidian</item>
+        <item name="android:navigationBarColor">@color/pitch_obsidian</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+
+    <style name="HorizonGameTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/pitch_obsidian</item>
+        <item name="android:colorBackground">@color/pitch_obsidian</item>
+        <item name="android:statusBarColor">@color/pitch_obsidian</item>
+        <item name="android:navigationBarColor">@color/pitch_obsidian</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

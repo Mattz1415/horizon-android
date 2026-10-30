@@ -55,6 +55,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-cargo-target-
 
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: 'stable'
+          cache: true
+
       - name: Install cargo-ndk
         run: |
           rustup target add aarch64-linux-android x86_64-linux-android
@@ -62,36 +69,30 @@ jobs:
 
       - name: Compile Native Rust Engine (aarch64-linux-android)
         run: |
-          mkdir -p packaging/android/src/main/jniLibs/arm64-v8a
+          mkdir -p packaging/android/flutter_launcher/android/app/src/main/jniLibs/arm64-v8a
           cargo ndk -t arm64-v8a --platform 28 build --release -p horizon-android
-          cp target/aarch64-linux-android/release/libhorizon_android.so packaging/android/src/main/jniLibs/arm64-v8a/
+          cp target/aarch64-linux-android/release/libhorizon_android.so packaging/android/flutter_launcher/android/app/src/main/jniLibs/arm64-v8a/
 
       - name: Compile Native Rust Engine (x86_64-linux-android)
         run: |
-          mkdir -p packaging/android/src/main/jniLibs/x86_64
+          mkdir -p packaging/android/flutter_launcher/android/app/src/main/jniLibs/x86_64
           cargo ndk -t x86_64 --platform 28 build --release -p horizon-android
-          cp target/x86_64-linux-android/release/libhorizon_android.so packaging/android/src/main/jniLibs/x86_64/
+          cp target/x86_64-linux-android/release/libhorizon_android.so packaging/android/flutter_launcher/android/app/src/main/jniLibs/x86_64/
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.14'
-
-      - name: Assemble APKs via Gradle
-        working-directory: packaging/android
+      - name: Build Flutter Liquid Glass Release APK
+        working-directory: packaging/android/flutter_launcher
         run: |
-          mkdir -p assets src/main/jniLibs
-          gradle assembleDebug --no-daemon --stacktrace
+          flutter build apk --release
 
       - name: Stage Artifacts
         run: |
           mkdir -p dist
-          find . -name "*.apk" -not -path "*/dist/*" -exec cp {} dist/ \;
+          find packaging/android/flutter_launcher/build/app/outputs/flutter-apk -name "*.apk" -exec cp {} dist/HorizonLauncher-v2.7.2-release.apk \;
           ls -lh dist/
 
       - name: Upload Horizon Android APKs
         uses: actions/upload-artifact@v4
         with:
-          name: HorizonAndroid-26.3-APKs
+          name: HorizonLauncher-v2.7.2-release-apk
           path: dist/*.apk
           if-no-files-found: warn

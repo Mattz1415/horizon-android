@@ -6,6 +6,7 @@
 # Downloaded/decompiled game content and private profiling artifacts.
 *.jar
 *.class
+*.so
 *.jfr
 *.hprof
 /decompiled/
