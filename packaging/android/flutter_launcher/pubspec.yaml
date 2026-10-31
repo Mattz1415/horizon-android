@@ -1,7 +1,7 @@
 name: horizon_launcher
 description: "Horizon Android - High-Performance 26.3 Rust Engine Launcher"
 publish_to: "none"
-version: 0.7.8+28
+version: 0.7.9+29
 
 environment:
   sdk: ">=3.3.0 <4.0.0"

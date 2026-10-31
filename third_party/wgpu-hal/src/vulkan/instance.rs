@@ -609,18 +609,15 @@ impl super::Instance {
             .engine_name(c"wgpu-hal")
             .engine_version(2)
             .api_version(
-                // Vulkan 1.0 doesn't like anything but 1.0 passed in here...
+                // Clamp requested API version to what instance_api_version supports up to 1.3.
+                // Ensures devices with Vulkan 1.1 (e.g. Adreno 619 on Android) negotiate Vulkan 1.1 natively.
                 if instance_api_version < vk::API_VERSION_1_1 {
                     vk::API_VERSION_1_0
+                } else if instance_api_version < vk::API_VERSION_1_2 {
+                    vk::API_VERSION_1_1
+                } else if instance_api_version < vk::API_VERSION_1_3 {
+                    vk::API_VERSION_1_2
                 } else {
-                    // This is the max Vulkan API version supported by `wgpu-hal`.
-                    //
-                    // If we want to increment this, there are some things that must be done first:
-                    //  - Audit the behavioral differences between the previous and new API versions.
-                    //  - Audit all extensions used by this backend:
-                    //    - If any were promoted in the new API version and the behavior has changed, we must handle the new behavior in addition to the old behavior.
-                    //    - If any were obsoleted in the new API version, we must implement a fallback for the new API version
-                    //    - If any are non-KHR-vendored, we must ensure the new behavior is still correct (since backwards-compatibility is not guaranteed).
                     vk::API_VERSION_1_3
                 },
             );

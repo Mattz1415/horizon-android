@@ -1321,10 +1321,19 @@ impl Renderer {
                 .map(|renderer| renderer.config.present_mode)
                 .filter(|mode| caps.present_modes.contains(mode))
                 .unwrap_or_else(|| {
-                    if caps.present_modes.contains(&wgpu::PresentMode::Mailbox) {
-                        wgpu::PresentMode::Mailbox
-                    } else {
+                    #[cfg(target_os = "android")]
+                    {
+                        // On Android / mobile GPUs (Adreno 619), Fifo matches SurfaceFlinger VSync
+                        // preventing thermal throttling, frame stutter, and mailbox queue stalls.
                         wgpu::PresentMode::Fifo
+                    }
+                    #[cfg(not(target_os = "android"))]
+                    {
+                        if caps.present_modes.contains(&wgpu::PresentMode::Mailbox) {
+                            wgpu::PresentMode::Mailbox
+                        } else {
+                            wgpu::PresentMode::Fifo
+                        }
                     }
                 });
             if previous.is_none() {

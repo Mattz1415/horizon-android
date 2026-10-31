@@ -1846,34 +1846,88 @@ class _HorizonCockpitState extends State<HorizonCockpit>
                   },
                 ),
 
-                const Spacer(),
+                const SizedBox(height: 8),
 
-                // Graphics API Lock
+                // Graphics API & Vulkan Driver Selector
+                const Text(
+                  'Backend Grafis & Driver Vulkan',
+                  style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: MonoGlass.pureWhite),
+                ),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: _graphicsApi,
+                  dropdownColor: MonoGlass.carbonSurface,
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 8),
+                    filled: true,
+                    fillColor: MonoGlass.charcoalLayer,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: const BorderSide(
+                          color: MonoGlass.glassBorder, width: 0.8),
+                    ),
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                        value: 'vulkan',
+                        child: Text('Vulkan 1.1 (Adreno 619 Native - Stabil)',
+                            style: TextStyle(fontSize: 11, color: MonoGlass.pureWhite))),
+                    DropdownMenuItem(
+                        value: 'vulkan_batching',
+                        child: Text('Vulkan 1.1 (High-Performance Mesh)',
+                            style: TextStyle(fontSize: 11, color: MonoGlass.pureWhite))),
+                    DropdownMenuItem(
+                        value: 'opengl',
+                        child: Text('OpenGL ES 3.2 (Fallback Kompatibilitas)',
+                            style: TextStyle(fontSize: 11, color: MonoGlass.pureWhite))),
+                  ],
+                  onChanged: (v) {
+                    HapticFeedback.selectionClick();
+                    setState(() => _graphicsApi = v ?? 'vulkan');
+                  },
+                ),
+                const SizedBox(height: 6),
                 Container(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                   decoration: BoxDecoration(
                     color: MonoGlass.charcoalLayer.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                         color: MonoGlass.glassBorder, width: 0.8),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.layers_outlined,
-                          size: 16, color: MonoGlass.pureWhite),
-                      SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('GRAPHICS API: VULKAN 1.2',
-                              style: TextStyle(
-                                  fontSize: 10.5,
+                      const Icon(Icons.verified_outlined,
+                          size: 15, color: MonoGlass.laserGreen),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _graphicsApi.startsWith('vulkan')
+                                  ? 'VULKAN 1.1 NATIVE (ADRENO 619)'
+                                  : 'FALLBACK OPENGL ES 3.2',
+                              style: const TextStyle(
+                                  fontSize: 10,
                                   fontWeight: FontWeight.bold,
-                                  color: MonoGlass.pureWhite)),
-                          Text('Terkunci ke hardware driver Qualcomm Adreno 619',
-                              style: TextStyle(
-                                  fontSize: 8.5, color: MonoGlass.coolSlate)),
-                        ],
+                                  color: MonoGlass.pureWhite),
+                            ),
+                            Text(
+                              _graphicsApi == 'vulkan'
+                                  ? 'Driver dinegosiasikan pada Vulkan 1.1 murni (Qualcomm Snapdragon 695).'
+                                  : _graphicsApi == 'vulkan_batching'
+                                      ? 'Mode batching Vulkan 1.1 aktif untuk throughput poligon tinggi.'
+                                      : 'Mode kompatibilitas GLES untuk perangkat tanpa Vulkan conformant.',
+                              style: const TextStyle(
+                                  fontSize: 8.5, color: MonoGlass.coolSlate),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
