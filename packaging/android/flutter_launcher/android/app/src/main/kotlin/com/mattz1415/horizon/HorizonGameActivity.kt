@@ -32,7 +32,8 @@ class HorizonGameActivity : NativeActivity() {
             ramMb: Int,
             threads: Int,
             backend: String,
-            touchScheme: Int
+            touchScheme: Int,
+            username: String
         )
 
         /** Hides the system IME owned by the engine (crates/horizon-client/src/android/native_ime.rs). */
@@ -99,8 +100,9 @@ class HorizonGameActivity : NativeActivity() {
         val threads = intent.getIntExtra("EXTRA_WORKER_THREADS", 4)
         val backend = intent.getStringExtra("EXTRA_BACKEND") ?: "vulkan"
         val touchScheme = intent.getIntExtra("EXTRA_TOUCH_SCHEME", 0)
+        val username = intent.getStringExtra("EXTRA_USERNAME") ?: "HorizonPlayer"
 
-        nativeInitEnvironment(gameDataDir, resourcesDir, ramMb, threads, backend, touchScheme)
+        nativeInitEnvironment(gameDataDir, resourcesDir, ramMb, threads, backend, touchScheme, username)
 
         // Defer the overlay inflation to the next frame: building ~40 buttons inside
         // onCreate delays the engine's first frame and shows up as a startup ANR.

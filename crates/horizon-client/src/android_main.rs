@@ -118,7 +118,7 @@ pub(crate) fn save_input_mode() {
 }
 pub(crate) const PUBLIC_BUILD: bool = match option_env!("HORIZON_ANDROID_PUBLIC") {
     Some(value) => value.len() == 1 && value.as_bytes()[0] == b'1',
-    None => false,
+    None => true,
 };
 
 #[unsafe(no_mangle)]
@@ -237,13 +237,18 @@ fn android_main(app: AndroidApp) {
         log::error!("Android supplied no application data directory");
         return;
     };
+    let game_data = home.join("game_data");
+    let _ = std::fs::create_dir_all(&game_data);
     let resources_dir = home.join("resources/26.3");
-    android_init::initialize_engine_environment(&home, &resources_dir, 4);
-    backend::initialize(home.clone());
+    android_init::initialize_engine_environment(&game_data, &resources_dir, 4);
+    backend::initialize(game_data.clone());
     if let Ok(vm) = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr().cast()) } {
         secure_store::initialize(vm);
     }
-    let engine_data = app.asset_manager().open(c"engine-data.zip");
+    let engine_data = app
+        .asset_manager()
+        .open(c"horizon-facts-26.3.zip")
+        .or_else(|| app.asset_manager().open(c"engine-data.zip"));
     APP.with(|slot| *slot.borrow_mut() = Some(app));
     let Some(cache) = platform::cache_dir() else {
         log::error!("Android supplied no application cache directory");
@@ -257,18 +262,16 @@ fn android_main(app: AndroidApp) {
             set: platform::clipboard_set,
         },
     );
-    if let Err(error) =
-        std::fs::create_dir_all(&home).and_then(|()| std::env::set_current_dir(&home))
-    {
-        log::error!("Cannot open {}: {error}", home.display());
-        return;
+    if let Err(error) = std::env::set_current_dir(&game_data) {
+        log::error!("Cannot set current dir to {}: {error}", game_data.display());
+        let _ = std::env::set_current_dir(&home);
     }
     #[cfg(debug_assertions)]
     if secure_store::development_probe() {
-        std::process::exit(0);
+        return;
     }
-    horizon_client::crash::install(home.clone(), "client");
-    let _ = std::fs::remove_file(home.join("android-error.txt"));
+    horizon_client::crash::install(game_data.clone(), "client");
+    let _ = std::fs::remove_file(game_data.join("android-error.txt"));
     if let Some(mut data) = engine_data {
         let copied = (|| -> std::io::Result<()> {
             let mut file = std::fs::File::create(home.join("engine-data.partial"))?;
@@ -308,10 +311,9 @@ fn android_main(app: AndroidApp) {
     };
     if let Err(error) = result {
         log::error!("Horizon: {error}");
-        horizon_client::crash::report_error(&home, "client", &*error);
-        let _ = std::fs::write(home.join("android-error.txt"), error.to_string());
+        horizon_client::crash::report_error(&game_data, "client", &*error);
+        let _ = std::fs::write(game_data.join("android-error.txt"), error.to_string());
     }
     platform::finish();
     APP.with(|slot| *slot.borrow_mut() = None);
-    std::process::exit(0);
 }

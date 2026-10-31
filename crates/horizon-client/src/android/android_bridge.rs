@@ -45,9 +45,10 @@ pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeInit
     threads: jint,
     backend: JString,
     touch_scheme: jint,
+    username: JString,
 ) {
     Java_dev_horizon_android_HorizonGameActivity_nativeInitEnvironment(
-        env, class, game_data_dir, resources_dir, ram_mb, threads, backend, touch_scheme,
+        env, class, game_data_dir, resources_dir, ram_mb, threads, backend, touch_scheme, username,
     );
 }
 
@@ -95,8 +96,9 @@ pub extern "system" fn Java_dev_horizon_android_HorizonGameActivity_nativeInitEn
     resources_dir: JString,
     _ram_mb: jint,
     threads: jint,
-    _backend: JString,
+    backend: JString,
     touch_scheme: jint,
+    username: JString,
 ) {
     if JVM.get().is_none() {
         if let Ok(vm) = env.get_java_vm() {
@@ -106,11 +108,19 @@ pub extern "system" fn Java_dev_horizon_android_HorizonGameActivity_nativeInitEn
 
     let g_dir: String = env.get_string(&game_data_dir)
         .map(|s| s.into())
-        .unwrap_or_else(|_| "/data/data/dev.horizon.android/files/game_data".into());
+        .unwrap_or_else(|_| "/data/data/com.mattz1415.horizon/files/game_data".into());
 
     let r_dir: String = env.get_string(&resources_dir)
         .map(|s| s.into())
-        .unwrap_or_else(|_| "/data/data/dev.horizon.android/files/resources/26.3".into());
+        .unwrap_or_else(|_| "/data/data/com.mattz1415.horizon/files/resources/26.3".into());
+
+    let user: String = env.get_string(&username)
+        .map(|s| s.into())
+        .unwrap_or_else(|_| "HorizonPlayer".into());
+
+    let backend_str: String = env.get_string(&backend)
+        .map(|s| s.into())
+        .unwrap_or_else(|_| "vulkan".into());
 
     let game_data_path = PathBuf::from(g_dir);
     let resources_path = PathBuf::from(r_dir);
@@ -122,14 +132,21 @@ pub extern "system" fn Java_dev_horizon_android_HorizonGameActivity_nativeInitEn
         threads as usize,
     );
 
+    let is_opengl = backend_str == "opengl";
+    horizon_client::android_runtime::configure_graphics(is_opengl);
+
     unsafe {
         std::env::set_var("HORIZON_RESOURCES_DIR", &resources_path);
         std::env::set_var("HORIZON_DIRECT_GAME", "1");
+        std::env::set_var("HORIZON_USERNAME", &user);
+        std::env::set_var("HORIZON_GRAPHICS_API", if is_opengl { "opengl" } else { "vulkan" });
     }
 
     log::info!(
-        "[HorizonBridge] Native environment initialized. Touch scheme: {}",
-        touch_scheme
+        "[HorizonBridge] Native environment initialized. Touch scheme: {}, Backend: {}, User: {}",
+        touch_scheme,
+        backend_str,
+        user
     );
 }
 

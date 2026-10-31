@@ -58,6 +58,7 @@ class ResourceDownloader(private val context: Context) {
         private const val TAG = "ResourceDownloader"
         const val VERSION = "26.3"
         val FAST_BUNDLE_URLS = listOf(
+            "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.8/horizon-resources-26.3.zip",
             "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.7/horizon-resources-26.3.zip",
             "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.6/horizon-resources-26.3.zip",
             "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.5/horizon-resources-26.3.zip",

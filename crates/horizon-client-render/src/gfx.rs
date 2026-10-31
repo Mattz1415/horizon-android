@@ -1280,8 +1280,8 @@ impl Renderer {
             let presentation = {
                 let mut presentation = presentation;
                 let physical = window.outer_size();
-                presentation.width = physical.width.max(1);
-                presentation.height = physical.height.max(1);
+                presentation.width = physical.width.clamp(1, max_side);
+                presentation.height = physical.height.clamp(1, max_side);
                 presentation
             };
             surface.configure(&device, &presentation);
@@ -3501,8 +3501,9 @@ impl Renderer {
         #[cfg(target_os = "android")]
         if self.offscreen.is_none() {
             let physical = self.window.outer_size();
-            config.width = physical.width.max(1);
-            config.height = physical.height.max(1);
+            let max_side = self.device.limits().max_texture_dimension_2d;
+            config.width = physical.width.clamp(1, max_side);
+            config.height = physical.height.clamp(1, max_side);
         }
         if let Some(hdr) = &self.hdr {
             config.format = hdr.output.format();
