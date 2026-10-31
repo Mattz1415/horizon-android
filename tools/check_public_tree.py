@@ -14,6 +14,7 @@ ANDROID_RESULT_BRIDGE = "packaging/android/java/dev/horizon/android/HorizonActiv
 ANDROID_DOCUMENTS_BRIDGE = "packaging/android/java/dev/horizon/android/HorizonDocumentsProvider.java"
 ANDROID_MATTZ_DOCUMENTS_BRIDGE = "packaging/android/java/com/mattz1415/horizon/HorizonDocumentsProvider.java"
 ANDROID_FLUTTER_DOCUMENTS_BRIDGE = "packaging/android/flutter_launcher/android/app/src/main/kotlin/com/mattz1415/horizon/HorizonDocumentsProvider.java"
+ANDROID_FLUTTER_JAVA_DOCUMENTS_BRIDGE = "packaging/android/flutter_launcher/android/app/src/main/java/com/mattz1415/horizon/HorizonDocumentsProvider.java"
 GRADLE_WRAPPER_JAR = "gradle/wrapper/gradle-wrapper.jar"
 FORK_RELEASE_DEBUG_APK = "downloaded_artifacts/HorizonLauncher-v2.5.0-debug-apk/HorizonLauncher-v2.5.0-debug.apk"
 FORK_RELEASE_UNSIGNED_APK = "downloaded_artifacts/HorizonLauncher-v2.5.0-release-apk/HorizonLauncher-v2.5.0-release-unsigned.apk"
@@ -23,6 +24,7 @@ ALLOWED_PATHS = {
     ANDROID_DOCUMENTS_BRIDGE,
     ANDROID_MATTZ_DOCUMENTS_BRIDGE,
     ANDROID_FLUTTER_DOCUMENTS_BRIDGE,
+    ANDROID_FLUTTER_JAVA_DOCUMENTS_BRIDGE,
     GRADLE_WRAPPER_JAR,
     FORK_RELEASE_DEBUG_APK,
     FORK_RELEASE_UNSIGNED_APK,
