@@ -6,7 +6,7 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 use jni::{
-    objects::{JClass, JString},
+    objects::{JClass, JString, JValue},
     sys::jint,
     JNIEnv, JavaVM,
 };
