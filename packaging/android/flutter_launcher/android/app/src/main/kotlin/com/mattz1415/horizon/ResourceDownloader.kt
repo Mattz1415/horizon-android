@@ -58,6 +58,7 @@ class ResourceDownloader(private val context: Context) {
         private const val TAG = "ResourceDownloader"
         const val VERSION = "26.3"
         val FAST_BUNDLE_URLS = listOf(
+            "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.7/horizon-resources-26.3.zip",
             "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.6/horizon-resources-26.3.zip",
             "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.5/horizon-resources-26.3.zip",
             "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.4/horizon-resources-26.3.zip"
@@ -131,6 +132,26 @@ class ResourceDownloader(private val context: Context) {
         val assetsDir = File(root, "assets")
         val hasAssets = assetsDir.exists() && (assetsDir.list()?.isNotEmpty() == true)
         val hasTables = File(root, "blocks.json").exists() || File(root, "horizon-resources.json").exists()
+
+        if (hasAssets && hasTables) {
+            val audioMarker = File(root, "audio-complete.json")
+            if (!audioMarker.exists()) {
+                try { audioMarker.writeText("{}") } catch (_: Exception) {}
+            }
+            val localAudioMarker = File(localTargetDir, "audio-complete.json")
+            if (localTargetDir.exists() && !localAudioMarker.exists()) {
+                try { localAudioMarker.writeText("{}") } catch (_: Exception) {}
+            }
+            val dlMarker = File(root, "android-downloads-v2.json")
+            if (!dlMarker.exists()) {
+                try { dlMarker.writeText("{\"schema\":2}") } catch (_: Exception) {}
+            }
+            val localDlMarker = File(localTargetDir, "android-downloads-v2.json")
+            if (localTargetDir.exists() && !localDlMarker.exists()) {
+                try { localDlMarker.writeText("{\"schema\":2}") } catch (_: Exception) {}
+            }
+        }
+
         return hasAssets && hasTables
     }
 
@@ -285,6 +306,7 @@ class ResourceDownloader(private val context: Context) {
             val sha256 = computeDirHash(stagingDir)
             File(stagingDir, ".prepared_sha256").writeText(sha256)
             File(stagingDir, "android-downloads-v2.json").writeText("{\"schema\":2}")
+            File(stagingDir, "audio-complete.json").writeText("{}")
 
             if (targetDir.exists()) targetDir.deleteRecursively()
             targetDir.mkdirs()
@@ -463,6 +485,7 @@ class ResourceDownloader(private val context: Context) {
             val sha256 = computeDirHash(stagingDir)
             File(stagingDir, ".prepared_sha256").writeText(sha256)
             File(stagingDir, "android-downloads-v2.json").writeText("{\"schema\":2}")
+            File(stagingDir, "audio-complete.json").writeText("{}")
 
             // Target 1: filesDir/resources/26.3
             if (targetDir.exists()) targetDir.deleteRecursively()
@@ -535,6 +558,7 @@ class ResourceDownloader(private val context: Context) {
                 val sha256 = computeDirHash(stagingDir)
                 File(stagingDir, ".prepared_sha256").writeText(sha256)
                 File(stagingDir, "android-downloads-v2.json").writeText("{\"schema\":2}")
+                File(stagingDir, "audio-complete.json").writeText("{}")
 
                 if (targetDir.exists()) targetDir.deleteRecursively()
                 targetDir.mkdirs()
