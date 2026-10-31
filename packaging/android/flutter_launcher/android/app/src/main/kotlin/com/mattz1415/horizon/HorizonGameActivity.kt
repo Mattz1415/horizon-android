@@ -71,6 +71,17 @@ class HorizonGameActivity : NativeActivity() {
     private var controlOverlay: com.mattz1415.horizon.ui.ControlOverlay? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val gameDataDir = File(filesDir, "game_data").apply { mkdirs() }.absolutePath
+        val resourcesDir = intent.getStringExtra("EXTRA_RESOURCES_DIR")
+            ?: File(filesDir, "resources/26.3").absolutePath
+        val ramMb = intent.getIntExtra("EXTRA_RAM_MB", 2048)
+        val threads = intent.getIntExtra("EXTRA_WORKER_THREADS", 4)
+        val backend = intent.getStringExtra("EXTRA_BACKEND") ?: "vulkan"
+        val touchScheme = intent.getIntExtra("EXTRA_TOUCH_SCHEME", 0)
+        val username = intent.getStringExtra("EXTRA_USERNAME") ?: "HorizonPlayer"
+
+        nativeInitEnvironment(gameDataDir, resourcesDir, ramMb, threads, backend, touchScheme, username)
+
         super.onCreate(savedInstanceState)
         currentInstance = this
 
@@ -92,17 +103,6 @@ class HorizonGameActivity : NativeActivity() {
         } catch (t: Throwable) {
             Log.w(TAG, "Foreground service unavailable: ${t.message}")
         }
-
-        val gameDataDir = File(filesDir, "game_data").apply { mkdirs() }.absolutePath
-        val resourcesDir = intent.getStringExtra("EXTRA_RESOURCES_DIR")
-            ?: File(filesDir, "resources/26.3").absolutePath
-        val ramMb = intent.getIntExtra("EXTRA_RAM_MB", 2048)
-        val threads = intent.getIntExtra("EXTRA_WORKER_THREADS", 4)
-        val backend = intent.getStringExtra("EXTRA_BACKEND") ?: "vulkan"
-        val touchScheme = intent.getIntExtra("EXTRA_TOUCH_SCHEME", 0)
-        val username = intent.getStringExtra("EXTRA_USERNAME") ?: "HorizonPlayer"
-
-        nativeInitEnvironment(gameDataDir, resourcesDir, ramMb, threads, backend, touchScheme, username)
 
         // Defer the overlay inflation to the next frame: building ~40 buttons inside
         // onCreate delays the engine's first frame and shows up as a startup ANR.

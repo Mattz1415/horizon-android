@@ -221,6 +221,94 @@ fn init_logging() {
     android_logger::init_once(logger);
 }
 
+struct DirectGameApp {
+    inner: Box<dyn winit::application::ApplicationHandler>,
+}
+
+impl DirectGameApp {
+    fn check_exit(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) -> bool {
+        if horizon_client::android_runtime::take_launcher_return() {
+            event_loop.exit();
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl winit::application::ApplicationHandler for DirectGameApp {
+    fn new_events(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        cause: winit::event::StartCause,
+    ) {
+        if self.check_exit(event_loop) {
+            return;
+        }
+        self.inner.new_events(event_loop, cause);
+    }
+
+    fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        if self.check_exit(event_loop) {
+            return;
+        }
+        self.inner.resumed(event_loop);
+        let _ = self.check_exit(event_loop);
+    }
+
+    fn user_event(&mut self, event_loop: &winit::event_loop::ActiveEventLoop, event: ()) {
+        if self.check_exit(event_loop) {
+            return;
+        }
+        self.inner.user_event(event_loop, event);
+    }
+
+    fn window_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        window_id: winit::window::WindowId,
+        event: winit::event::WindowEvent,
+    ) {
+        if self.check_exit(event_loop) {
+            return;
+        }
+        self.inner.window_event(event_loop, window_id, event);
+        let _ = self.check_exit(event_loop);
+    }
+
+    fn device_event(
+        &mut self,
+        event_loop: &winit::event_loop::ActiveEventLoop,
+        device_id: winit::event::DeviceId,
+        event: winit::event::DeviceEvent,
+    ) {
+        if self.check_exit(event_loop) {
+            return;
+        }
+        self.inner.device_event(event_loop, device_id, event);
+    }
+
+    fn about_to_wait(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        if self.check_exit(event_loop) {
+            return;
+        }
+        self.inner.about_to_wait(event_loop);
+        let _ = self.check_exit(event_loop);
+    }
+
+    fn suspended(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        self.inner.suspended(event_loop);
+    }
+
+    fn exiting(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        self.inner.exiting(event_loop);
+    }
+
+    fn memory_warning(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        self.inner.memory_warning(event_loop);
+    }
+}
+
 #[unsafe(no_mangle)]
 fn android_main(app: AndroidApp) {
     use winit::platform::android::activity::input::Axis;
@@ -286,14 +374,26 @@ fn android_main(app: AndroidApp) {
             log::error!("Cannot unpack engine data: {error}");
         }
     }
+    let engine_zip = home.join("engine-data.zip");
+    if engine_zip.is_file() {
+        let _ = horizon_client::android_resources::repair_structure_transforms(
+            &engine_zip,
+            &resources_dir,
+        );
+        let _ = horizon_client::android_resources::repair_structure_transforms(
+            &engine_zip,
+            &home.join(".local/horizon-client/26.3"),
+        );
+    }
     let direct_game = std::env::var("HORIZON_DIRECT_GAME").map(|v| v != "0").unwrap_or(true);
     let result = if direct_game {
         log::info!("Directly booting into Minecraft 26.3 game simulation...");
         match game::android_game() {
-            Ok(mut game_app) => {
+            Ok(game_app) => {
+                let mut direct_app = DirectGameApp { inner: game_app };
                 android_event_loop()
                     .map_err(|e| -> Box<dyn std::error::Error> { e.into() })
-                    .and_then(|events| events.run_app(&mut game_app).map_err(Into::into))
+                    .and_then(|events| events.run_app(&mut direct_app).map_err(Into::into))
             }
             Err(error) => {
                 log::warn!("Direct game boot failed ({error}), falling back to internal launcher");

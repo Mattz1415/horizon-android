@@ -134,6 +134,8 @@ pub extern "system" fn Java_dev_horizon_android_HorizonGameActivity_nativeInitEn
 
     let is_opengl = backend_str == "opengl";
     horizon_client::android_runtime::configure_graphics(is_opengl);
+    let is_vulkan_batching = backend_str == "vulkan_batching";
+    horizon_client::android_runtime::configure_gpu(is_vulkan_batching);
 
     unsafe {
         std::env::set_var("HORIZON_RESOURCES_DIR", &resources_path);
