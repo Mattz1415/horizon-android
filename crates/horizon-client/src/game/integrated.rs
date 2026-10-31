@@ -256,8 +256,10 @@ impl Game<'_> {
         let (ready_tx, ready) = channel();
         let (tasks, server_tasks) = channel();
         let server_flags = flags.clone();
-        let thread = std::thread::Builder::new()
-            .name("Server thread".into())
+        let builder = std::thread::Builder::new().name("Server thread".into());
+        #[cfg(target_os = "android")]
+        let builder = builder.stack_size(8 * 1024 * 1024);
+        let thread = builder
             .spawn(move || {
                 // MinecraftServer.spin's Thread.setPriority(8).
                 horizon_threads::favour_current();

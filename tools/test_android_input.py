@@ -24,6 +24,15 @@ pub use horizon_client_input::{gamepad, keybinds, clipboard};
 #[path = "../../../../crates/horizon-client-render/src/keypad.rs"] mod keypad;
 mod graphics { pub enum GraphicsApi {OpenGl, Vulkan} }
 ''', encoding='utf-8')
-    subprocess.run(['cargo', 'test', '--manifest-path', str(harness / 'Cargo.toml'), '--', '--test-threads=1'], cwd=ROOT, check=True)
+    host_cmd = []
+    try:
+        rustc_info = subprocess.check_output(['rustc', '-vV'], text=True)
+        for line in rustc_info.splitlines():
+            if line.startswith('host: '):
+                host_cmd = ['--target', line.split(': ')[1].strip()]
+                break
+    except Exception:
+        pass
+    subprocess.run(['cargo', 'test', *host_cmd, '--manifest-path', str(harness / 'Cargo.toml'), '--', '--test-threads=1'], cwd=ROOT, check=True)
 if __name__ == '__main__':
     main()

@@ -212,6 +212,14 @@ impl Settings {
             .ok()
             .and_then(|b| serde_json::from_slice(&b).ok())
             .unwrap_or_default();
+        if let Ok(val) = std::env::var("HORIZON_TOUCH_SCHEME") {
+            if let Ok(idx) = val.parse::<usize>() {
+                if let Some(&(mode, split, _)) = Mode::SCHEMES.get(idx) {
+                    s.mode = mode;
+                    s.split_controls = split;
+                }
+            }
+        }
         s.sanitize();
         // Restore the original top-row spacing without moving custom layouts.
         for row in &mut s.layouts {

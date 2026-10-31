@@ -593,8 +593,10 @@ impl Lod {
         let worker = shared.clone();
         let mesh_context = context.clone();
         let (tx, results) = mpsc::channel();
-        let handle = thread::Builder::new()
-            .name("Far terrain".into())
+        let builder = thread::Builder::new().name("Far terrain".into());
+        #[cfg(target_os = "android")]
+        let builder = builder.stack_size(8 * 1024 * 1024);
+        let handle = builder
             .spawn(move || {
                 // Ticks and frames come first (horizon_threads).
                 horizon_threads::behind_server();
@@ -607,9 +609,11 @@ impl Lod {
                     };
                     let shared = worker.clone();
                     let tx = tx.clone();
+                    let builder = thread::Builder::new().name("Far sampling".into());
+                    #[cfg(target_os = "android")]
+                    let builder = builder.stack_size(8 * 1024 * 1024);
                     sampling.push(
-                        thread::Builder::new()
-                            .name("Far sampling".into())
+                        builder
                             .spawn(move || {
                                 horizon_threads::behind_server();
                                 loop {

@@ -79,14 +79,15 @@ fn init_environment_internal(
 
     let is_opengl = backend_str == "opengl";
     horizon_client::android_runtime::configure_graphics(is_opengl);
-    let is_vulkan_batching = backend_str == "vulkan_batching";
-    horizon_client::android_runtime::configure_gpu(is_vulkan_batching);
+    let is_vulkan = !is_opengl;
+    horizon_client::android_runtime::configure_gpu(is_vulkan);
 
     unsafe {
         std::env::set_var("HORIZON_RESOURCES_DIR", &resources_path);
         std::env::set_var("HORIZON_DIRECT_GAME", "1");
         std::env::set_var("HORIZON_USERNAME", &user);
         std::env::set_var("HORIZON_GRAPHICS_API", if is_opengl { "opengl" } else { "vulkan" });
+        std::env::set_var("HORIZON_TOUCH_SCHEME", touch_scheme.to_string());
     }
 
     log::info!(

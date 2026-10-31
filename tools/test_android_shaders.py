@@ -75,7 +75,16 @@ fn live_shader_search() {
 }
 '''
     (harness / 'src/lib.rs').write_text(source, encoding='utf-8')
-    command = ['cargo', 'test', '--manifest-path', str(harness / 'Cargo.toml')]
+    host_cmd = []
+    try:
+        rustc_info = subprocess.check_output(['rustc', '-vV'], text=True)
+        for line in rustc_info.splitlines():
+            if line.startswith('host: '):
+                host_cmd = ['--target', line.split(': ')[1].strip()]
+                break
+    except Exception:
+        pass
+    command = ['cargo', 'test', *host_cmd, '--manifest-path', str(harness / 'Cargo.toml')]
     subprocess.run(command, cwd=ROOT, check=True)
     if args.live:
         subprocess.run(command + ['live_shader_search', '--', '--ignored', '--nocapture'],

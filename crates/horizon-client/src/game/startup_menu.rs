@@ -256,8 +256,10 @@ pub(super) fn spawn_loader(
     let vanilla_root = vanilla_root.to_path_buf();
     let dev_mods = options.dev_mods.clone();
     let progress = progress.clone();
-    let handle = std::thread::Builder::new()
-        .name("resource-loader".into())
+    let builder = std::thread::Builder::new().name("resource-loader".into());
+    #[cfg(target_os = "android")]
+    let builder = builder.stack_size(8 * 1024 * 1024);
+    let handle = builder
         .spawn(move || {
             let mut pack_error = None;
             let root = packs::startup_root(&vanilla_root, &settings.resource_packs, &[])

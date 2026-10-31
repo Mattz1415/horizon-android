@@ -132,7 +132,16 @@ struct Globals { sunrise: vec4<f32>, sunrise_fan: array<vec4<f32>,32> }
             ('sunrise_gpu', ROOT / 'tools/android_sunrise_gpu_test.rs'),
         ]:
             output.write(f'\n#[path = "{source.as_posix()}"] mod {name};\n')
-    subprocess.run(['cargo', 'test', '--manifest-path', str(work / 'Cargo.toml'),
+    host_cmd = []
+    try:
+        rustc_info = subprocess.check_output(['rustc', '-vV'], text=True)
+        for line in rustc_info.splitlines():
+            if line.startswith('host: '):
+                host_cmd = ['--target', line.split(': ')[1].strip()]
+                break
+    except Exception:
+        pass
+    subprocess.run(['cargo', 'test', *host_cmd, '--manifest-path', str(work / 'Cargo.toml'),
                     '--', '--nocapture', '--test-threads=1'], cwd=ROOT, check=True)
 
 

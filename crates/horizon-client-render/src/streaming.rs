@@ -465,8 +465,10 @@ impl Streaming {
                 let send = send.clone();
                 let generator = generator.clone();
                 let light = context.light.clone();
-                thread::Builder::new()
-                    .name(format!("horizon-worker-{i}"))
+                let builder = thread::Builder::new().name(format!("horizon-worker-{i}"));
+                #[cfg(target_os = "android")]
+                let builder = builder.stack_size(8 * 1024 * 1024);
+                builder
                     .spawn(move || {
                         // Ticks and frames come first (horizon_threads).
                         horizon_threads::behind_server();
