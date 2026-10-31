@@ -136,17 +136,29 @@
                 android:textSize="11sp"
                 android:textStyle="bold" />
 
+            <!-- LAYOUT / Touch Layout Studio -->
+            <Button
+                android:id="@+id/btnLayout"
+                android:layout_width="66dp"
+                android:layout_height="36dp"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_control_button"
+                android:text="LAYOUT"
+                android:textColor="@color/control_text"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
         </LinearLayout>
     </HorizontalScrollView>
 
     <!-- 3. Left Movement Controls (D-Pad + Sprint) -->
     <RelativeLayout
         android:id="@+id/leftControlsContainer"
-        android:layout_width="220dp"
-        android:layout_height="180dp"
-        android:layout_gravity="bottom|start"
-        android:layout_marginStart="16dp"
-        android:layout_marginBottom="16dp">
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:background="@android:color/transparent">
 
         <!-- D-Pad Container -->
         <RelativeLayout
@@ -154,7 +166,11 @@
             android:layout_width="160dp"
             android:layout_height="160dp"
             android:layout_alignParentStart="true"
-            android:layout_alignParentBottom="true">
+            android:layout_alignParentBottom="true"
+            android:layout_marginStart="16dp"
+            android:layout_marginBottom="16dp"
+            android:clipChildren="false"
+            android:clipToPadding="false">
 
             <!-- D-Pad Up (W) -->
             <Button
@@ -221,10 +237,10 @@
             android:id="@+id/btnSprint"
             android:layout_width="50dp"
             android:layout_height="44dp"
-            android:layout_toEndOf="@id/dpadBox"
+            android:layout_alignParentStart="true"
             android:layout_alignParentBottom="true"
-            android:layout_marginStart="8dp"
-            android:layout_marginBottom="4dp"
+            android:layout_marginStart="184dp"
+            android:layout_marginBottom="20dp"
             android:background="@drawable/bg_control_button"
             android:text="RUN"
             android:textColor="@color/control_text"
@@ -236,19 +252,21 @@
     <!-- 4. Right Action Buttons (PRI, SEC, JUMP, DROP) -->
     <RelativeLayout
         android:id="@+id/rightControlsContainer"
-        android:layout_width="190dp"
-        android:layout_height="190dp"
-        android:layout_gravity="bottom|end"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="16dp">
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipChildren="false"
+        android:clipToPadding="false"
+        android:background="@android:color/transparent">
 
         <!-- Attack / Destroy (PRI - Left Mouse Button) -->
         <Button
             android:id="@+id/btnAttack"
             android:layout_width="58dp"
             android:layout_height="58dp"
-            android:layout_alignParentTop="true"
-            android:layout_centerHorizontal="true"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginEnd="80dp"
+            android:layout_marginBottom="140dp"
             android:background="@drawable/bg_control_button"
             android:text="PRI"
             android:textColor="@color/control_text"
@@ -260,8 +278,10 @@
             android:id="@+id/btnPlace"
             android:layout_width="58dp"
             android:layout_height="58dp"
-            android:layout_alignParentStart="true"
-            android:layout_centerVertical="true"
+            android:layout_alignParentEnd="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginEnd="144dp"
+            android:layout_marginBottom="80dp"
             android:background="@drawable/bg_control_button"
             android:text="SEC"
             android:textColor="@color/control_text"
@@ -274,7 +294,9 @@
             android:layout_width="50dp"
             android:layout_height="44dp"
             android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true"
+            android:layout_alignParentBottom="true"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="80dp"
             android:background="@drawable/bg_control_button"
             android:text="DROP"
             android:textColor="@color/control_text"
@@ -286,8 +308,10 @@
             android:id="@+id/btnJump"
             android:layout_width="64dp"
             android:layout_height="58dp"
+            android:layout_alignParentEnd="true"
             android:layout_alignParentBottom="true"
-            android:layout_centerHorizontal="true"
+            android:layout_marginEnd="76dp"
+            android:layout_marginBottom="16dp"
             android:background="@drawable/bg_control_button"
             android:text="JUMP"
             android:textColor="@color/control_text"
@@ -392,6 +416,176 @@
             android:text="9"
             android:textColor="@color/control_text"
             android:textSize="10sp" />
+    </LinearLayout>
+
+    <!-- 6. Touch Layout Studio Editor Panel (Overlay when editing touch layout) -->
+    <LinearLayout
+        android:id="@+id/editorPanel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="50dp"
+        android:orientation="vertical"
+        android:background="#E010141C"
+        android:padding="10dp"
+        android:elevation="20dp"
+        android:visibility="gone">
+
+        <!-- Header / Instructions -->
+        <TextView
+            android:id="@+id/tvEditorTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:text="TOUCH LAYOUT STUDIO • GESER TOMBOL UNTUK MENGATUR"
+            android:textColor="#FF00E5FF"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <!-- Row 1: Presets -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PRESET: "
+                android:textColor="@color/control_text"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnPresetDefault"
+                android:layout_width="64dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_control_button"
+                android:text="DEFAULT"
+                android:textColor="@color/control_text"
+                android:textSize="9sp" />
+
+            <Button
+                android:id="@+id/btnPresetClaw"
+                android:layout_width="60dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_control_button"
+                android:text="CLAW"
+                android:textColor="@color/control_text"
+                android:textSize="9sp" />
+
+            <Button
+                android:id="@+id/btnPresetErgo"
+                android:layout_width="60dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_control_button"
+                android:text="ERGO"
+                android:textColor="@color/control_text"
+                android:textSize="9sp" />
+
+            <Button
+                android:id="@+id/btnPresetMinimal"
+                android:layout_width="68dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_control_button"
+                android:text="MINIMAL"
+                android:textColor="@color/control_text"
+                android:textSize="9sp" />
+        </LinearLayout>
+
+        <!-- Row 2: Scale, Opacity & Action Buttons -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="UKURAN: "
+                android:textColor="@color/control_text"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnScaleDown"
+                android:layout_width="36dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/bg_control_button"
+                android:text="-"
+                android:textColor="@color/control_text"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnScaleUp"
+                android:layout_width="36dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/bg_control_button"
+                android:text="+"
+                android:textColor="@color/control_text"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="OPASITAS: "
+                android:textColor="@color/control_text"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnAlphaDown"
+                android:layout_width="36dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/bg_control_button"
+                android:text="-"
+                android:textColor="@color/control_text"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnAlphaUp"
+                android:layout_width="36dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="2dp"
+                android:background="@drawable/bg_control_button"
+                android:text="+"
+                android:textColor="@color/control_text"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btnResetLayout"
+                android:layout_width="60dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/bg_control_button"
+                android:text="RESET"
+                android:textColor="#FFFF5252"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+
+            <Button
+                android:id="@+id/btnSaveLayout"
+                android:layout_width="72dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_control_button"
+                android:text="SIMPAN"
+                android:textColor="#FF00E676"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+        </LinearLayout>
     </LinearLayout>
 
 </FrameLayout>

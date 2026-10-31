@@ -300,8 +300,21 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun installAddon(urlStr: String, targetSubdir: String = "mods") {
-        val client = OkHttpClient()
-        val request = Request.Builder().url(urlStr).build()
+        val resolvedUrl = when {
+            urlStr.contains("playhorizon.dev/shaders/golden-hour") -> "https://github.com/Mattz1415/horizon-android/releases/latest/download/golden-hour.hshader"
+            urlStr.contains("playhorizon.dev/shaders/vanilla-enhanced") -> "https://github.com/Mattz1415/horizon-android/releases/latest/download/vanilla-enhanced.hshader"
+            urlStr.contains("playhorizon.dev/packs/bare-bones") -> "https://github.com/Mattz1415/horizon-android/releases/latest/download/bare-bones-26.3.zip"
+            urlStr.contains("playhorizon.dev/packs/programmer-art") -> "https://github.com/Mattz1415/horizon-android/releases/latest/download/programmer-art.zip"
+            urlStr.contains("coords-hud.hmod") -> "https://github.com/Mattz1415/horizon-android/releases/latest/download/coords_hud-0.1.0.hmod"
+            urlStr.contains("zoom.hmod") -> "https://github.com/Mattz1415/horizon-android/releases/latest/download/zoom.hmod"
+            urlStr.contains("fullbright.hmod") -> "https://github.com/Mattz1415/horizon-android/releases/latest/download/fullbright.hmod"
+            else -> urlStr
+        }
+        val client = OkHttpClient.Builder()
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
+        val request = Request.Builder().url(resolvedUrl).build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw java.io.IOException("Gagal download: HTTP ${response.code}")
             val body = response.body ?: throw java.io.IOException("Empty body")
@@ -311,7 +324,7 @@ class MainActivity : FlutterActivity() {
                 "resourcepacks" -> ".zip"
                 else -> ".hmod"
             }
-            val filename = urlStr.substringAfterLast("/").takeIf { it.contains(".") }
+            val filename = resolvedUrl.substringAfterLast("/").takeIf { it.contains(".") }
                 ?: "addon_${System.currentTimeMillis()}$ext"
 
             val dir = File(downloader.gameDataDir, targetSubdir).apply { mkdirs() }

@@ -1149,19 +1149,19 @@ class _HorizonCockpitState extends State<HorizonCockpit>
       {
         'title': 'Coords & FPS HUD',
         'sub': 'Menampilkan koordinat XYZ, Biome, dan FPS di layar',
-        'url': 'https://raw.githubusercontent.com/horizon-rust/horizon-mods/main/coords-hud/coords-hud.hmod',
+        'url': 'https://github.com/Mattz1415/horizon-android/releases/latest/download/coords_hud-0.1.0.hmod',
         'type': 'mod',
       },
       {
         'title': 'Smooth Zoom (C-Key)',
         'sub': 'Zoom kamera halus OptiFine untuk melihat kejauhan',
-        'url': 'https://raw.githubusercontent.com/horizon-rust/horizon-mods/main/zoom/zoom.hmod',
+        'url': 'https://github.com/Mattz1415/horizon-android/releases/latest/download/zoom.hmod',
         'type': 'mod',
       },
       {
         'title': 'Fullbright Gamma',
         'sub': 'Penerangan malam hari tanpa obor di gua',
-        'url': 'https://raw.githubusercontent.com/horizon-rust/horizon-mods/main/fullbright/fullbright.hmod',
+        'url': 'https://github.com/Mattz1415/horizon-android/releases/latest/download/fullbright.hmod',
         'type': 'mod',
       },
     ];
@@ -1170,13 +1170,13 @@ class _HorizonCockpitState extends State<HorizonCockpit>
       {
         'title': 'Horizon Vanilla Enhanced',
         'sub': 'Refleksi air PBR Vulkan & bayangan dinamis halus',
-        'url': 'https://playhorizon.dev/shaders/vanilla-enhanced.hshader',
+        'url': 'https://github.com/Mattz1415/horizon-android/releases/latest/download/vanilla-enhanced.hshader',
         'type': 'shader',
       },
       {
         'title': 'Golden Hour Atmospheric',
         'sub': 'Efek sinar matahari senja dan kabut atmosferik',
-        'url': 'https://playhorizon.dev/shaders/golden-hour.hshader',
+        'url': 'https://github.com/Mattz1415/horizon-android/releases/latest/download/golden-hour.hshader',
         'type': 'shader',
       },
     ];
@@ -1185,13 +1185,13 @@ class _HorizonCockpitState extends State<HorizonCockpit>
       {
         'title': 'Bare Bones 26.3',
         'sub': 'Tekstur kartun minimalis 16x sangat ringan untuk mobile',
-        'url': 'https://playhorizon.dev/packs/bare-bones-26.3.zip',
+        'url': 'https://github.com/Mattz1415/horizon-android/releases/latest/download/bare-bones-26.3.zip',
         'type': 'pack',
       },
       {
         'title': 'Programmer Art Classic',
         'sub': 'Tekstur retro klasik Minecraft alpha/beta',
-        'url': 'https://playhorizon.dev/packs/programmer-art.zip',
+        'url': 'https://github.com/Mattz1415/horizon-android/releases/latest/download/programmer-art.zip',
         'type': 'pack',
       },
     ];

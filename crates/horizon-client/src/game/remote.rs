@@ -1186,7 +1186,7 @@ impl Game<'_> {
         })
     }
     /// The columns a moved or resized storage no longer holds.
-    fn drop_remote_chunks_out_of_range(&mut self) {
+    pub(super) fn drop_remote_chunks_out_of_range(&mut self) {
         let gone: horizon_client::fast_hash::FxHashSet<(i32, i32)> = self
             .world
             .chunks

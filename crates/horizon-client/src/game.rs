@@ -12844,6 +12844,9 @@ impl Game<'_> {
         if let Err(e) = self.poll_remote() {
             log::warn!("Horizon: {e}");
         }
+        if self.remote.is_some() && self.ticks % 20 == 0 {
+            self.drop_remote_chunks_out_of_range();
+        }
         self.prepare_lod();
         if self.lod.is_some() {
             for &((x, _, z), _, _) in &self.world.light_edits {
@@ -12946,6 +12949,10 @@ impl Game<'_> {
                 let centre = self.streaming.center;
                 let far = |k: &(i32, i32, i32)| (k.0 - centre.0).pow(2) + (k.2 - centre.1).pow(2);
                 pending.sort_unstable_by_key(|(k, _)| std::cmp::Reverse(far(k)));
+                #[cfg(target_os = "android")]
+                if pending.len() > 96 {
+                    pending.truncate(96);
+                }
                 let mut budget = horizon_client::gfx::upload_budget::UploadBudget::with_wait(
                     g.chunk_updates as usize,
                     u64::from(g.upload_budget_kib) * 1024,
