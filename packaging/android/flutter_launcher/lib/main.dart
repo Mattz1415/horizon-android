@@ -1902,7 +1902,7 @@ class _HorizonCockpitState extends State<HorizonCockpit>
                   child: Row(
                     children: [
                       const Icon(Icons.verified_outlined,
-                          size: 15, color: MonoGlass.laserGreen),
+                          size: 15, color: MonoGlass.statusReady),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Column(
