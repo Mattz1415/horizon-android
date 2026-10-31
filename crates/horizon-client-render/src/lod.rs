@@ -390,11 +390,11 @@ impl Plan {
         }
         self.nodes.insert(key);
         // Keep distant cells small on screen; finest tiles retain individual
-        // blocks. Reduced keeps them twice as large (a quarter of the cells).
-        let split = if previous.split.contains(&key) { 10 } else { 8 };
-        let threshold = key.size() * if reduced { split / 2 } else { split };
+        // blocks. Smooth threshold prevents chunky blocky columns.
+        let split = if previous.split.contains(&key) { 16 } else { 12 };
+        let threshold = key.size() * if reduced { split * 3 / 4 } else { split };
         if key.level > 0
-            && (key.distance(camera) < detail * 16 + 16
+            && (key.distance(camera) < detail * 32 + 32
                 || key.distance(camera).max(self.elevation) < threshold)
         {
             self.split.insert(key);

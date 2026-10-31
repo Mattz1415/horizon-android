@@ -143,7 +143,8 @@ class MainActivity : FlutterActivity() {
                                         "name" to f.name.removeSuffix(".disabled"),
                                         "fileName" to f.name,
                                         "size" to f.length(),
-                                        "enabled" to enabled
+                                        "enabled" to enabled,
+                                        "type" to "mod"
                                     )
                                 )
                             }
@@ -152,13 +153,19 @@ class MainActivity : FlutterActivity() {
 
                         "installModFromUrl" -> {
                             val url = call.argument<String>("url")
+                            val type = call.argument<String>("type") ?: "mod"
                             if (url == null) {
-                                result.error("INVALID_URL", "URL mod tidak boleh kosong", null)
+                                result.error("INVALID_URL", "URL tidak boleh kosong", null)
                                 return@setMethodCallHandler
                             }
                             scope.launch {
                                 try {
-                                    installMod(url)
+                                    val targetSubdir = when (type) {
+                                        "shader" -> "shaders"
+                                        "pack" -> "resourcepacks"
+                                        else -> "mods"
+                                    }
+                                    installAddon(url, targetSubdir)
                                     withContext(Dispatchers.Main) { result.success(true) }
                                 } catch (e: Exception) {
                                     withContext(Dispatchers.Main) {
@@ -170,21 +177,27 @@ class MainActivity : FlutterActivity() {
 
                         "toggleMod" -> {
                             val fileName = call.argument<String>("fileName")
+                            val type = call.argument<String>("type") ?: "mod"
                             if (fileName == null) {
                                 result.error("INVALID_NAME", "Filename kosong", null)
                                 return@setMethodCallHandler
                             }
-                            val modsDir = File(downloader.gameDataDir, "mods")
-                            val file = File(modsDir, fileName)
+                            val targetSubdir = when (type) {
+                                "shader" -> "shaders"
+                                "pack" -> "resourcepacks"
+                                else -> "mods"
+                            }
+                            val dir = File(downloader.gameDataDir, targetSubdir)
+                            val file = File(dir, fileName)
                             if (file.exists()) {
                                 if (fileName.endsWith(".disabled")) {
-                                    file.renameTo(File(modsDir, fileName.removeSuffix(".disabled")))
+                                    file.renameTo(File(dir, fileName.removeSuffix(".disabled")))
                                 } else {
-                                    file.renameTo(File(modsDir, "$fileName.disabled"))
+                                    file.renameTo(File(dir, "$fileName.disabled"))
                                 }
                                 result.success(true)
                             } else {
-                                result.error("NOT_FOUND", "File mod tidak ditemukan", null)
+                                result.error("NOT_FOUND", "File tidak ditemukan", null)
                             }
                         }
 
@@ -282,20 +295,25 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun installMod(urlStr: String) {
+    private fun installAddon(urlStr: String, targetSubdir: String = "mods") {
         val client = OkHttpClient()
         val request = Request.Builder().url(urlStr).build()
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw java.io.IOException("Gagal download mod: HTTP ${response.code}")
-            val body = response.body ?: throw java.io.IOException("Empty mod body")
+            if (!response.isSuccessful) throw java.io.IOException("Gagal download: HTTP ${response.code}")
+            val body = response.body ?: throw java.io.IOException("Empty body")
 
-            val filename = urlStr.substringAfterLast("/").takeIf { it.endsWith(".hmod") }
-                ?: "mod_${System.currentTimeMillis()}.hmod"
+            val ext = when (targetSubdir) {
+                "shaders" -> ".hshader"
+                "resourcepacks" -> ".zip"
+                else -> ".hmod"
+            }
+            val filename = urlStr.substringAfterLast("/").takeIf { it.contains(".") }
+                ?: "addon_${System.currentTimeMillis()}$ext"
 
-            val modsDir = File(downloader.gameDataDir, "mods").apply { mkdirs() }
-            val modFile = File(modsDir, filename)
+            val dir = File(downloader.gameDataDir, targetSubdir).apply { mkdirs() }
+            val destFile = File(dir, filename)
 
-            FileOutputStream(modFile).use { fos ->
+            FileOutputStream(destFile).use { fos ->
                 body.byteStream().use { it.copyTo(fos) }
             }
         }

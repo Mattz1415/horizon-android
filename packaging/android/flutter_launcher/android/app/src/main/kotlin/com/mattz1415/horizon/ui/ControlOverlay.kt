@@ -111,8 +111,7 @@ class ControlOverlay @JvmOverloads constructor(
 
         findViewById<Button>(R.id.btnKbd)?.setOnClickListener {
             triggerHaptic()
-            val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
-            imm?.toggleSoftInput(InputMethodManager.SHOW_FORCED, 0)
+            com.mattz1415.horizon.HorizonGameActivity.requestShowIme("")
         }
 
         bindKeyButton(R.id.btnEsc, KeyEvent.KEYCODE_ESCAPE)
