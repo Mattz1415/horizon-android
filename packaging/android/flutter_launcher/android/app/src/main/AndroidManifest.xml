@@ -55,8 +55,9 @@
             android:documentLaunchMode="intoExisting"
             android:launchMode="singleTask"
             android:screenOrientation="sensorLandscape"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|navigation"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboard|keyboardHidden|navigation|uiMode|density|fontScale|locale|layoutDirection"
             android:theme="@style/HorizonGameTheme"
+            android:windowSoftInputMode="adjustResize"
             android:resizeableActivity="false">
             <meta-data
                 android:name="android.app.lib_name"

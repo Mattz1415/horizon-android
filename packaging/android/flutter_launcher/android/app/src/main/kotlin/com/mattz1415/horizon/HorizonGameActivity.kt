@@ -1,3 +1,5 @@
+// HorizonGameActivity.kt
+// Kotlin / Android / NativeActivity host for the Rust engine (:game process)
 package com.mattz1415.horizon
 
 import android.app.NativeActivity
@@ -6,19 +8,12 @@ import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
-import android.os.Process
+import android.os.PowerManager
 import android.provider.MediaStore
-import android.text.Editable
-import android.text.InputType
-import android.text.TextWatcher
 import android.util.Log
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
-import android.view.inputmethod.EditorInfo
-import android.view.inputmethod.InputMethodManager
-import android.widget.EditText
-import android.widget.FrameLayout
+import android.view.WindowManager
 import java.io.File
 import java.io.FileOutputStream
 
@@ -31,7 +26,6 @@ class HorizonGameActivity : NativeActivity() {
             System.loadLibrary("horizon_android")
         }
 
-        @JvmStatic
         external fun nativeInitEnvironment(
             gameDataDir: String,
             resourcesDir: String,
@@ -41,30 +35,27 @@ class HorizonGameActivity : NativeActivity() {
             touchScheme: Int
         )
 
+        /** Hides the system IME owned by the engine (crates/horizon-client/src/android/native_ime.rs). */
         @JvmStatic
-        external fun nativeOnImeInput(text: String)
-
-        @JvmStatic
-        external fun nativeOnImeBackspace()
-
-        @JvmStatic
-        external fun nativeOnImeDone()
+        external fun nativeHideKeyboard()
 
         @JvmStatic
         var currentInstance: HorizonGameActivity? = null
             private set
 
-        @JvmStatic
-        fun requestShowIme(initialText: String) {
-            currentInstance?.runOnUiThread {
-                currentInstance?.showIme(initialText)
-            }
-        }
-
+        /**
+         * The engine owns the only EditText that is allowed to hold focus. Kotlin must not
+         * add a second one: the IME only serves the view that has focus, so a competing
+         * proxy silently blocks the keyboard (that was the "keyboard never appears" bug).
+         */
         @JvmStatic
         fun requestHideIme() {
             currentInstance?.runOnUiThread {
-                currentInstance?.hideIme()
+                try {
+                    nativeHideKeyboard()
+                } catch (t: Throwable) {
+                    Log.w(TAG, "requestHideIme: ${t.message}")
+                }
             }
         }
 
@@ -75,23 +66,31 @@ class HorizonGameActivity : NativeActivity() {
         }
     }
 
-    private var imeProxyEditText: EditText? = null
-    private var isImeUpdating = false
-
-    private var wakeLock: android.os.PowerManager.WakeLock? = null
+    private var wakeLock: PowerManager.WakeLock? = null
+    private var controlOverlay: com.mattz1415.horizon.ui.ControlOverlay? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         currentInstance = this
 
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        val pm = getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager
-        wakeLock = pm?.newWakeLock(android.os.PowerManager.PARTIAL_WAKE_LOCK, "horizon:game_active_wakelock")?.apply {
+        // The IME must be allowed to resize this window, otherwise the engine never
+        // learns the keyboard height and the editor stays hidden behind it.
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or
+                    WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
+        )
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
+        wakeLock = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "horizon:game_active")?.apply {
             setReferenceCounted(false)
-            acquire(4 * 60 * 60 * 1000L) // Pin CPU wake for up to 4 hours of gameplay
         }
 
-        GameService.start(this)
+        try {
+            GameService.start(this)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Foreground service unavailable: ${t.message}")
+        }
 
         val gameDataDir = File(filesDir, "game_data").apply { mkdirs() }.absolutePath
         val resourcesDir = intent.getStringExtra("EXTRA_RESOURCES_DIR")
@@ -101,23 +100,49 @@ class HorizonGameActivity : NativeActivity() {
         val backend = intent.getStringExtra("EXTRA_BACKEND") ?: "vulkan"
         val touchScheme = intent.getIntExtra("EXTRA_TOUCH_SCHEME", 0)
 
-        nativeInitEnvironment(
-            gameDataDir,
-            resourcesDir,
-            ramMb,
-            threads,
-            backend,
-            touchScheme
-        )
+        nativeInitEnvironment(gameDataDir, resourcesDir, ramMb, threads, backend, touchScheme)
 
-        setupImeProxy()
-        hideSystemUi()
-        setupControlOverlay()
+        // Defer the overlay inflation to the next frame: building ~40 buttons inside
+        // onCreate delays the engine's first frame and shows up as a startup ANR.
+        window.decorView.post { attachControlOverlay() }
     }
 
-    private var controlOverlay: com.mattz1415.horizon.ui.ControlOverlay? = null
+    override fun onResume() {
+        super.onResume()
+        acquireWakeLock()
+        hideSystemUi()
+        // The engine may still be starting; the overlay is idempotent.
+        if (controlOverlay == null) window.decorView.post { attachControlOverlay() }
+    }
 
-    private fun setupControlOverlay() {
+    override fun onPause() {
+        releaseWakeLock()
+        super.onPause()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus) hideSystemUi()
+    }
+
+    private fun acquireWakeLock() {
+        try {
+            if (wakeLock?.isHeld != true) wakeLock?.acquire()
+        } catch (t: Throwable) {
+            Log.w(TAG, "Wake lock: ${t.message}")
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            if (wakeLock?.isHeld == true) wakeLock?.release()
+        } catch (t: Throwable) {
+            Log.w(TAG, "Wake lock release: ${t.message}")
+        }
+    }
+
+    private fun attachControlOverlay() {
+        if (controlOverlay != null) return
         try {
             val overlay = com.mattz1415.horizon.ui.ControlOverlay(this)
             controlOverlay = overlay
@@ -128,83 +153,20 @@ class HorizonGameActivity : NativeActivity() {
                     ViewGroup.LayoutParams.MATCH_PARENT
                 )
             )
-            Log.i(TAG, "Zalith/Pojav ControlOverlay attached successfully!")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error displaying ControlOverlay: ${e.message}", e)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Control overlay failed: ${t.message}", t)
         }
-    }
-
-    private fun setupImeProxy() {
-        val root = window.decorView as ViewGroup
-        val editText = EditText(this).apply {
-            layoutParams = FrameLayout.LayoutParams(1, 1)
-            visibility = View.VISIBLE
-            alpha = 0.0f
-            isFocusable = true
-            isFocusableInTouchMode = true
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
-            imeOptions = EditorInfo.IME_ACTION_DONE or EditorInfo.IME_FLAG_NO_EXTRACT_UI
-
-            addTextChangedListener(object : TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    if (isImeUpdating) return
-                    if (s != null && count > 0) {
-                        val added = s.subSequence(start, start + count).toString()
-                        nativeOnImeInput(added)
-                    }
-                }
-                override fun afterTextChanged(s: Editable?) {}
-            })
-
-            setOnKeyListener { _, keyCode, event ->
-                if (event.action == KeyEvent.ACTION_DOWN) {
-                    if (keyCode == KeyEvent.KEYCODE_DEL) {
-                        nativeOnImeBackspace()
-                        return@setOnKeyListener true
-                    } else if (keyCode == KeyEvent.KEYCODE_ENTER) {
-                        nativeOnImeDone()
-                        hideIme()
-                        return@setOnKeyListener true
-                    }
-                }
-                false
-            }
-        }
-        root.addView(editText)
-        imeProxyEditText = editText
-    }
-
-    private fun showIme(initialText: String) {
-        imeProxyEditText?.let { et ->
-            isImeUpdating = true
-            et.setText(initialText)
-            et.setSelection(initialText.length)
-            isImeUpdating = false
-            et.requestFocus()
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(et, InputMethodManager.SHOW_FORCED)
-        }
-    }
-
-    private fun hideIme() {
-        imeProxyEditText?.let { et ->
-            et.clearFocus()
-            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(et.windowToken, 0)
-        }
-        hideSystemUi()
     }
 
     private fun hideSystemUi() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             window.setDecorFitsSystemWindows(false)
-            val controller = window.insetsController
-            controller?.hide(
+            val controller = window.insetsController ?: return
+            controller.hide(
                 android.view.WindowInsets.Type.statusBars() or
                         android.view.WindowInsets.Type.navigationBars()
             )
-            controller?.systemBarsBehavior =
+            controller.systemBarsBehavior =
                 android.view.WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         } else {
             @Suppress("DEPRECATION")
@@ -227,7 +189,7 @@ class HorizonGameActivity : NativeActivity() {
                     put(MediaStore.Images.Media.MIME_TYPE, "image/png")
                     put(
                         MediaStore.Images.Media.RELATIVE_PATH,
-                        Environment.DIRECTORY_PICTURES + File.separator + "HorizonAndroid"
+                        Environment.DIRECTORY_PICTURES + File.separator + "Horizon"
                     )
                     put(MediaStore.Images.Media.IS_PENDING, 1)
                 }
@@ -245,26 +207,27 @@ class HorizonGameActivity : NativeActivity() {
                 true
             } else {
                 val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-                val targetDir = File(picturesDir, "HorizonAndroid").apply { mkdirs() }
-                val targetFile = File(targetDir, filename)
-                FileOutputStream(targetFile).use { it.write(pngBytes) }
+                val targetDir = File(picturesDir, "Horizon").apply { mkdirs() }
+                FileOutputStream(File(targetDir, filename)).use { it.write(pngBytes) }
                 true
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Gagal menyimpan screenshot ke MediaStore: ${e.message}")
+        } catch (t: Throwable) {
+            Log.e(TAG, "Screenshot: ${t.message}")
             false
         }
     }
 
     override fun onDestroy() {
-        try {
-            if (wakeLock?.isHeld == true) {
-                wakeLock?.release()
-            }
-        } catch (_: Exception) {}
+        controlOverlay = null
+        releaseWakeLock()
         super.onDestroy()
         currentInstance = null
-        GameService.stop(this)
-        Process.killProcess(Process.myPid())
+        try {
+            GameService.stop(this)
+        } catch (_: Throwable) {
+        }
+        // Never Process.killProcess here. Android calls onDestroy for configuration
+        // changes and recents swipes; killing the process there produced the endless
+        // "Horizon has stopped" / ANR loop the phone kept showing.
     }
 }

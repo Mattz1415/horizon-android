@@ -76,6 +76,16 @@ pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeOnIm
     Java_dev_horizon_android_HorizonGameActivity_nativeOnImeDone(env, class);
 }
 
+/// JNI: Hides the soft keyboard owned by `native_ime`, called from the on-screen KBD
+/// button and from `request_hide_soft_keyboard`.
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeHideKeyboard(
+    _env: JNIEnv,
+    _class: JClass,
+) {
+    crate::native_ime::hide();
+}
+
 /// JNI: Initializes working directories, Rayon threadpool, and parameters from HorizonGameActivity.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_dev_horizon_android_HorizonGameActivity_nativeInitEnvironment(
@@ -159,25 +169,6 @@ pub extern "system" fn Java_dev_horizon_android_HorizonGameActivity_nativeOnImeD
     let queue = get_ime_queue();
     if let Ok(mut lock) = queue.lock() {
         lock.push(ImeEvent::Done);
-    }
-}
-
-/// Calls Kotlin `HorizonGameActivity.requestShowIme(initial_text)` from Rust.
-pub fn request_show_soft_keyboard(initial_text: &str) {
-    let Some(vm) = JVM.get() else { return };
-    if let Ok(mut env) = vm.attach_current_thread() {
-        if let Ok(j_text) = env.new_string(initial_text) {
-            let class_name = "com/mattz1415/horizon/HorizonGameActivity";
-            let cls = env.find_class(class_name).or_else(|_| env.find_class("dev/horizon/android/HorizonGameActivity"));
-            if let Ok(cls) = cls {
-                let _ = env.call_static_method(
-                    cls,
-                    "requestShowIme",
-                    "(Ljava/lang/String;)V",
-                    &[JValue::Object(&j_text)],
-                );
-            }
-        }
     }
 }
 

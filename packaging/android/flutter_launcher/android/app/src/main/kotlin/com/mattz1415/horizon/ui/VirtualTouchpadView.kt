@@ -8,11 +8,10 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.drawable.Drawable
-import android.os.Build
 import android.os.SystemClock
-import android.os.VibrationEffect
-import android.os.Vibrator
 import android.util.AttributeSet
+import android.util.Log
+import android.view.HapticFeedbackConstants
 import android.view.InputDevice
 import android.view.MotionEvent
 import android.view.View
@@ -32,7 +31,7 @@ class VirtualTouchpadView @JvmOverloads constructor(
     private val pointerWidth = (24 * density).toInt()
     private val pointerHeight = (36 * density).toInt()
 
-    private val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+    private val TAG = "VirtualTouchpad"
 
     private val cursorFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = Color.WHITE
@@ -174,9 +173,11 @@ class VirtualTouchpadView @JvmOverloads constructor(
                     mouseX = curX.coerceIn(0f, w)
                     mouseY = curY.coerceIn(0f, h)
                     invalidate()
-                } else {
-                    sendMouseMotion(deltaX * 1.5f, deltaY * 1.5f)
                 }
+                // Both modes forward the delta: the cursor position feeds menus, the
+                // relative axes feed the camera. Mouse mode used to skip this and left
+                // the player unable to turn around at all.
+                sendMouseMotion(deltaX * 1.5f, deltaY * 1.5f)
 
                 lastTouchX = curX
                 lastTouchY = curY
@@ -216,30 +217,60 @@ class VirtualTouchpadView @JvmOverloads constructor(
 
     private fun sendMouseMotion(deltaX: Float, deltaY: Float) {
         val act = context as? Activity ?: return
-        val now = SystemClock.uptimeMillis()
-        val properties = arrayOf(MotionEvent.PointerProperties().apply {
-            id = 0
-            toolType = MotionEvent.TOOL_TYPE_MOUSE
-        })
-        val coords = arrayOf(MotionEvent.PointerCoords().apply {
-            this.x = mouseX
-            this.y = mouseY
+        val event = obtainMouseEvent(MotionEvent.ACTION_MOVE, buttonState = 0, isDown = true) {
             setAxisValue(MotionEvent.AXIS_RELATIVE_X, deltaX)
             setAxisValue(MotionEvent.AXIS_RELATIVE_Y, deltaY)
-        })
-        val event = MotionEvent.obtain(
-            now, now, MotionEvent.ACTION_MOVE,
-            1, properties, coords,
-            0, 0, 1.0f, 1.0f,
-            0, 0, InputDevice.SOURCE_MOUSE, 0
-        )
-        act.dispatchGenericMotionEvent(event)
+        }
+        try {
+            act.dispatchGenericMotionEvent(event)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Mouse motion failed: ${t.message}")
+        } finally {
+            event.recycle()
+        }
     }
 
     private fun sendMouseClick(button: Int) {
         val act = context as? Activity ?: return
+        val buttonState = if (button == 1) MotionEvent.BUTTON_PRIMARY else MotionEvent.BUTTON_SECONDARY
+
+        dispatchMouse(act, MotionEvent.ACTION_DOWN, buttonState, isDown = true)
+        // The release keeps the button bit set on the DOWN frame only; a fresh event is
+        // built for UP so the engine sees a matching down/up pair without reusing a
+        // recycled MotionEvent (that reuse was destabilising the input queue).
+        postDelayed({
+            dispatchMouse(act, MotionEvent.ACTION_UP, buttonState, isDown = false)
+        }, 50)
+    }
+
+    private fun dispatchMouse(act: Activity, action: Int, buttonState: Int, isDown: Boolean) {
+        val generic = obtainMouseEvent(action, buttonState, isDown)
+        try {
+            if (act.dispatchGenericMotionEvent(generic)) return
+        } catch (t: Throwable) {
+            Log.w(TAG, "Mouse dispatch failed: ${t.message}")
+            return
+        } finally {
+            generic.recycle()
+        }
+
+        val touch = obtainMouseEvent(action, buttonState, isDown)
+        try {
+            act.dispatchTouchEvent(touch)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Touch dispatch failed: ${t.message}")
+        } finally {
+            touch.recycle()
+        }
+    }
+
+    private fun obtainMouseEvent(
+        action: Int,
+        buttonState: Int,
+        isDown: Boolean,
+        configure: MotionEvent.PointerCoords.() -> Unit = {}
+    ): MotionEvent {
         val now = SystemClock.uptimeMillis()
-        val btnState = if (button == 1) MotionEvent.BUTTON_PRIMARY else MotionEvent.BUTTON_SECONDARY
         val properties = arrayOf(MotionEvent.PointerProperties().apply {
             id = 0
             toolType = MotionEvent.TOOL_TYPE_MOUSE
@@ -247,39 +278,20 @@ class VirtualTouchpadView @JvmOverloads constructor(
         val coords = arrayOf(MotionEvent.PointerCoords().apply {
             this.x = mouseX
             this.y = mouseY
-            this.pressure = 1.0f
+            pressure = if (isDown) 1.0f else 0.0f
+            configure()
         })
-
-        val downEvent = MotionEvent.obtain(
-            now, now, MotionEvent.ACTION_DOWN,
+        return MotionEvent.obtain(
+            now, now, action,
             1, properties, coords,
-            0, btnState, 1.0f, 1.0f,
+            0, buttonState, 1.0f, 1.0f,
             0, 0, InputDevice.SOURCE_MOUSE or InputDevice.SOURCE_TOUCHSCREEN, 0
         )
-        act.dispatchGenericMotionEvent(downEvent)
-        act.dispatchTouchEvent(downEvent)
-
-        postDelayed({
-            coords[0].pressure = 0.0f
-            val upEvent = MotionEvent.obtain(
-                now + 50, now + 50, MotionEvent.ACTION_UP,
-                1, properties, coords,
-                0, 0, 1.0f, 1.0f,
-                0, 0, InputDevice.SOURCE_MOUSE or InputDevice.SOURCE_TOUCHSCREEN, 0
-            )
-            act.dispatchGenericMotionEvent(upEvent)
-            act.dispatchTouchEvent(upEvent)
-        }, 50)
     }
 
     private fun triggerHaptic() {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(VibrationEffect.createOneShot(14, VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(14)
-            }
-        } catch (_: Exception) {}
+        // View-level haptic feedback instead of a direct Vibrator binder call: the
+        // per-touch Vibrator IPC was stalling the UI thread under rapid tapping.
+        performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
     }
 }

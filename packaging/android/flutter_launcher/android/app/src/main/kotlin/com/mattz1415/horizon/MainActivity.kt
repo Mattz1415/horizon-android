@@ -231,7 +231,11 @@ class MainActivity : FlutterActivity() {
                             val username = call.argument<String>("username") ?: "HorizonPlayer"
 
                             val launchIntent = Intent(this, HorizonGameActivity::class.java).apply {
-                                flags = Intent.FLAG_ACTIVITY_NEW_DOCUMENT or Intent.FLAG_ACTIVITY_MULTIPLE_TASK
+                                // singleTask + intoExisting already reuse the running game.
+                                // MULTIPLE_TASK used to spawn a second :game process, which
+                                // doubled memory pressure and produced the ANR popups.
+                                flags = Intent.FLAG_ACTIVITY_NEW_TASK or
+                                        Intent.FLAG_ACTIVITY_SINGLE_TOP
                                 putExtra("EXTRA_RESOURCES_DIR", downloader.targetDir.absolutePath)
                                 putExtra("EXTRA_RAM_MB", ramMb)
                                 putExtra("EXTRA_WORKER_THREADS", threads)
