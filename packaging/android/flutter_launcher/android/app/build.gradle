@@ -32,6 +32,7 @@ android {
 
     sourceSets {
         main {
+            java.srcDirs = ['src/main/java', 'src/main/kotlin']
             jniLibs.srcDirs = ['src/main/jniLibs']
             res.srcDirs = ['src/main/res']
             assets.srcDirs = ['src/main/assets']

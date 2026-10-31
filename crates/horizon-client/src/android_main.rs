@@ -416,4 +416,5 @@ fn android_main(app: AndroidApp) {
     }
     platform::finish();
     APP.with(|slot| *slot.borrow_mut() = None);
+    std::process::exit(0);
 }

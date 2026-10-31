@@ -27,6 +27,18 @@
         android:hardwareAccelerated="true"
         tools:targetApi="35">
 
+        <!-- Storage Access Framework Documents Provider -->
+        <provider
+            android:name="com.mattz1415.horizon.HorizonDocumentsProvider"
+            android:authorities="${applicationId}.documents"
+            android:exported="true"
+            android:grantUriPermissions="true"
+            android:permission="android.permission.MANAGE_DOCUMENTS">
+            <intent-filter>
+                <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
+            </intent-filter>
+        </provider>
+
         <!-- Process 1: Default Process Launcher Activity (Flutter Liquid Glass UI) -->
         <activity
             android:name="com.mattz1415.horizon.MainActivity"

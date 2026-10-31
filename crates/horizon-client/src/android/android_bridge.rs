@@ -53,7 +53,68 @@ pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeInit
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_00024Companion_nativeInitEnvironment(
+    env: JNIEnv,
+    class: JClass,
+    game_data_dir: JString,
+    resources_dir: JString,
+    ram_mb: jint,
+    threads: jint,
+    backend: JString,
+    touch_scheme: jint,
+    username: JString,
+) {
+    Java_dev_horizon_android_HorizonGameActivity_nativeInitEnvironment(
+        env, class, game_data_dir, resources_dir, ram_mb, threads, backend, touch_scheme, username,
+    );
+}
+
+/// 6-parameter compatibility fallback (v2.7.2 caller format).
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeInitEnvironment__Ljava_lang_String_2Ljava_lang_String_2IILjava_lang_String_2I(
+    mut env: JNIEnv,
+    class: JClass,
+    game_data_dir: JString,
+    resources_dir: JString,
+    ram_mb: jint,
+    threads: jint,
+    backend: JString,
+    touch_scheme: jint,
+) {
+    let username = env.new_string("HorizonPlayer").unwrap_or_else(|_| JString::from(std::ptr::null_mut()));
+    Java_dev_horizon_android_HorizonGameActivity_nativeInitEnvironment(
+        env, class, game_data_dir, resources_dir, ram_mb, threads, backend, touch_scheme, username,
+    );
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_00024Companion_nativeInitEnvironment__Ljava_lang_String_2Ljava_lang_String_2IILjava_lang_String_2I(
+    mut env: JNIEnv,
+    class: JClass,
+    game_data_dir: JString,
+    resources_dir: JString,
+    ram_mb: jint,
+    threads: jint,
+    backend: JString,
+    touch_scheme: jint,
+) {
+    let username = env.new_string("HorizonPlayer").unwrap_or_else(|_| JString::from(std::ptr::null_mut()));
+    Java_dev_horizon_android_HorizonGameActivity_nativeInitEnvironment(
+        env, class, game_data_dir, resources_dir, ram_mb, threads, backend, touch_scheme, username,
+    );
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeOnImeInput(
+    env: JNIEnv,
+    class: JClass,
+    text: JString,
+) {
+    Java_dev_horizon_android_HorizonGameActivity_nativeOnImeInput(env, class, text);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_00024Companion_nativeOnImeInput(
     env: JNIEnv,
     class: JClass,
     text: JString,
@@ -70,7 +131,23 @@ pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeOnIm
 }
 
 #[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_00024Companion_nativeOnImeBackspace(
+    env: JNIEnv,
+    class: JClass,
+) {
+    Java_dev_horizon_android_HorizonGameActivity_nativeOnImeBackspace(env, class);
+}
+
+#[unsafe(no_mangle)]
 pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeOnImeDone(
+    env: JNIEnv,
+    class: JClass,
+) {
+    Java_dev_horizon_android_HorizonGameActivity_nativeOnImeDone(env, class);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_00024Companion_nativeOnImeDone(
     env: JNIEnv,
     class: JClass,
 ) {
@@ -81,6 +158,14 @@ pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeOnIm
 /// button and from `request_hide_soft_keyboard`.
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeHideKeyboard(
+    _env: JNIEnv,
+    _class: JClass,
+) {
+    crate::native_ime::hide();
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_00024Companion_nativeHideKeyboard(
     _env: JNIEnv,
     _class: JClass,
 ) {

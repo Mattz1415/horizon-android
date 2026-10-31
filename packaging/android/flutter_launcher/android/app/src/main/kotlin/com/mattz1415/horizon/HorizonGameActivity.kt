@@ -5,6 +5,7 @@ package com.mattz1415.horizon
 import android.app.NativeActivity
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -26,6 +27,7 @@ class HorizonGameActivity : NativeActivity() {
             System.loadLibrary("horizon_android")
         }
 
+        @JvmStatic
         external fun nativeInitEnvironment(
             gameDataDir: String,
             resourcesDir: String,
@@ -35,6 +37,15 @@ class HorizonGameActivity : NativeActivity() {
             touchScheme: Int,
             username: String
         )
+
+        @JvmStatic
+        external fun nativeOnImeInput(text: String)
+
+        @JvmStatic
+        external fun nativeOnImeBackspace()
+
+        @JvmStatic
+        external fun nativeOnImeDone()
 
         /** Hides the system IME owned by the engine (crates/horizon-client/src/android/native_ime.rs). */
         @JvmStatic
@@ -70,7 +81,26 @@ class HorizonGameActivity : NativeActivity() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var controlOverlay: com.mattz1415.horizon.ui.ControlOverlay? = null
 
+    private external fun nativeDocumentResult(request: Int, result: Int, uri: String?)
+
+    override fun onActivityResult(request: Int, result: Int, data: Intent?) {
+        super.onActivityResult(request, result, data)
+        if (request != 4101) return
+        try {
+            nativeDocumentResult(
+                request,
+                result,
+                if (data == null || data.data == null) null else data.data.toString()
+            )
+        } catch (t: Throwable) {
+            Log.w(TAG, "nativeDocumentResult: ${t.message}")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        currentInstance = this
+
         val gameDataDir = File(filesDir, "game_data").apply { mkdirs() }.absolutePath
         val resourcesDir = intent.getStringExtra("EXTRA_RESOURCES_DIR")
             ?: File(filesDir, "resources/26.3").absolutePath
@@ -80,10 +110,11 @@ class HorizonGameActivity : NativeActivity() {
         val touchScheme = intent.getIntExtra("EXTRA_TOUCH_SCHEME", 0)
         val username = intent.getStringExtra("EXTRA_USERNAME") ?: "HorizonPlayer"
 
-        nativeInitEnvironment(gameDataDir, resourcesDir, ramMb, threads, backend, touchScheme, username)
-
-        super.onCreate(savedInstanceState)
-        currentInstance = this
+        try {
+            nativeInitEnvironment(gameDataDir, resourcesDir, ramMb, threads, backend, touchScheme, username)
+        } catch (t: Throwable) {
+            Log.e(TAG, "nativeInitEnvironment failed: ${t.message}", t)
+        }
 
         // The IME must be allowed to resize this window, otherwise the engine never
         // learns the keyboard height and the editor stays hidden behind it.
@@ -228,8 +259,8 @@ class HorizonGameActivity : NativeActivity() {
             GameService.stop(this)
         } catch (_: Throwable) {
         }
-        // Never Process.killProcess here. Android calls onDestroy for configuration
-        // changes and recents swipes; killing the process there produced the endless
-        // "Horizon has stopped" / ANR loop the phone kept showing.
+        if (isFinishing) {
+            android.os.Process.killProcess(android.os.Process.myPid())
+        }
     }
 }
