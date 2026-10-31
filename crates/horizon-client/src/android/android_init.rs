@@ -3,7 +3,7 @@
 
 use std::{
     backtrace::Backtrace,
-    fs::{File, OpenOptions},
+    fs::OpenOptions,
     io::Write,
     panic,
     path::{Path, PathBuf},
@@ -14,7 +14,7 @@ use std::{
 static INIT_ONCE: Once = Once::new();
 static CRASH_LOG_PATH: OnceLock<PathBuf> = OnceLock::new();
 
-/// Direct FFI to Android NDK logger for unbuffered panic messages.
+// Direct FFI to Android NDK logger for unbuffered panic messages.
 #[cfg(target_os = "android")]
 unsafe extern "C" {
     fn __android_log_write(prio: i32, tag: *const std::ffi::c_char, text: *const std::ffi::c_char) -> i32;

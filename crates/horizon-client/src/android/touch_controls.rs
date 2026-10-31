@@ -9,7 +9,6 @@ use std::{
     time::{Duration, Instant},
 };
 use serde::{Deserialize, Serialize};
-use winit::keyboard::KeyCode;
 
 pub const MAX_CUSTOM_BUTTONS: usize = 32;
 pub const TAP_MAX_DURATION: Duration = Duration::from_millis(185);

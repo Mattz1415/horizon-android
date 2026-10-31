@@ -6,8 +6,8 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 use jni::{
-    objects::{JByteArray, JClass, JObject, JString, JValue},
-    sys::{jboolean, jint, JNI_TRUE, JNI_FALSE},
+    objects::{JClass, JString},
+    sys::jint,
     JNIEnv, JavaVM,
 };
 
@@ -33,6 +33,85 @@ pub fn drain_ime_events() -> Vec<ImeEvent> {
     } else {
         Vec::new()
     }
+}
+
+fn init_environment_internal(
+    mut env: JNIEnv,
+    game_data_dir: JString,
+    resources_dir: JString,
+    _ram_mb: jint,
+    threads: jint,
+    backend: JString,
+    touch_scheme: jint,
+    username: Option<JString>,
+) {
+    if JVM.get().is_none() {
+        if let Ok(vm) = env.get_java_vm() {
+            let _ = JVM.set(vm);
+        }
+    }
+
+    let g_dir: String = env.get_string(&game_data_dir)
+        .map(|s| s.into())
+        .unwrap_or_else(|_| "/data/data/com.mattz1415.horizon/files/game_data".into());
+
+    let r_dir: String = env.get_string(&resources_dir)
+        .map(|s| s.into())
+        .unwrap_or_else(|_| "/data/data/com.mattz1415.horizon/files/resources/26.3".into());
+
+    let user: String = username
+        .and_then(|u| env.get_string(&u).ok().map(|s| s.into()))
+        .unwrap_or_else(|| "HorizonPlayer".into());
+
+    let backend_str: String = env.get_string(&backend)
+        .map(|s| s.into())
+        .unwrap_or_else(|_| "vulkan".into());
+
+    let game_data_path = PathBuf::from(g_dir);
+    let resources_path = PathBuf::from(r_dir);
+
+    // Call android_init to set working directory, Rayon pool, and panic hook
+    super::android_init::initialize_engine_environment(
+        &game_data_path,
+        &resources_path,
+        threads as usize,
+    );
+
+    let is_opengl = backend_str == "opengl";
+    horizon_client::android_runtime::configure_graphics(is_opengl);
+    let is_vulkan_batching = backend_str == "vulkan_batching";
+    horizon_client::android_runtime::configure_gpu(is_vulkan_batching);
+
+    unsafe {
+        std::env::set_var("HORIZON_RESOURCES_DIR", &resources_path);
+        std::env::set_var("HORIZON_DIRECT_GAME", "1");
+        std::env::set_var("HORIZON_USERNAME", &user);
+        std::env::set_var("HORIZON_GRAPHICS_API", if is_opengl { "opengl" } else { "vulkan" });
+    }
+
+    log::info!(
+        "[HorizonBridge] Native environment initialized. Touch scheme: {}, Backend: {}, User: {}",
+        touch_scheme,
+        backend_str,
+        user
+    );
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_horizon_android_HorizonGameActivity_nativeInitEnvironment(
+    env: JNIEnv,
+    _class: JClass,
+    game_data_dir: JString,
+    resources_dir: JString,
+    ram_mb: jint,
+    threads: jint,
+    backend: JString,
+    touch_scheme: jint,
+    username: JString,
+) {
+    init_environment_internal(
+        env, game_data_dir, resources_dir, ram_mb, threads, backend, touch_scheme, Some(username),
+    );
 }
 
 #[unsafe(no_mangle)]
@@ -72,8 +151,8 @@ pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_00024Compa
 /// 6-parameter compatibility fallback (v2.7.2 caller format).
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeInitEnvironment__Ljava_lang_String_2Ljava_lang_String_2IILjava_lang_String_2I(
-    mut env: JNIEnv,
-    class: JClass,
+    env: JNIEnv,
+    _class: JClass,
     game_data_dir: JString,
     resources_dir: JString,
     ram_mb: jint,
@@ -81,16 +160,15 @@ pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeInit
     backend: JString,
     touch_scheme: jint,
 ) {
-    let username = env.new_string("HorizonPlayer").unwrap_or_else(|_| JString::from(std::ptr::null_mut()));
-    Java_dev_horizon_android_HorizonGameActivity_nativeInitEnvironment(
-        env, class, game_data_dir, resources_dir, ram_mb, threads, backend, touch_scheme, username,
+    init_environment_internal(
+        env, game_data_dir, resources_dir, ram_mb, threads, backend, touch_scheme, None,
     );
 }
 
 #[unsafe(no_mangle)]
 pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_00024Companion_nativeInitEnvironment__Ljava_lang_String_2Ljava_lang_String_2IILjava_lang_String_2I(
-    mut env: JNIEnv,
-    class: JClass,
+    env: JNIEnv,
+    _class: JClass,
     game_data_dir: JString,
     resources_dir: JString,
     ram_mb: jint,
@@ -98,9 +176,8 @@ pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_00024Compa
     backend: JString,
     touch_scheme: jint,
 ) {
-    let username = env.new_string("HorizonPlayer").unwrap_or_else(|_| JString::from(std::ptr::null_mut()));
-    Java_dev_horizon_android_HorizonGameActivity_nativeInitEnvironment(
-        env, class, game_data_dir, resources_dir, ram_mb, threads, backend, touch_scheme, username,
+    init_environment_internal(
+        env, game_data_dir, resources_dir, ram_mb, threads, backend, touch_scheme, None,
     );
 }
 
@@ -170,71 +247,6 @@ pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_00024Compa
     _class: JClass,
 ) {
     crate::native_ime::hide();
-}
-
-/// JNI: Initializes working directories, Rayon threadpool, and parameters from HorizonGameActivity.
-#[unsafe(no_mangle)]
-pub extern "system" fn Java_dev_horizon_android_HorizonGameActivity_nativeInitEnvironment(
-    mut env: JNIEnv,
-    _class: JClass,
-    game_data_dir: JString,
-    resources_dir: JString,
-    _ram_mb: jint,
-    threads: jint,
-    backend: JString,
-    touch_scheme: jint,
-    username: JString,
-) {
-    if JVM.get().is_none() {
-        if let Ok(vm) = env.get_java_vm() {
-            let _ = JVM.set(vm);
-        }
-    }
-
-    let g_dir: String = env.get_string(&game_data_dir)
-        .map(|s| s.into())
-        .unwrap_or_else(|_| "/data/data/com.mattz1415.horizon/files/game_data".into());
-
-    let r_dir: String = env.get_string(&resources_dir)
-        .map(|s| s.into())
-        .unwrap_or_else(|_| "/data/data/com.mattz1415.horizon/files/resources/26.3".into());
-
-    let user: String = env.get_string(&username)
-        .map(|s| s.into())
-        .unwrap_or_else(|_| "HorizonPlayer".into());
-
-    let backend_str: String = env.get_string(&backend)
-        .map(|s| s.into())
-        .unwrap_or_else(|_| "vulkan".into());
-
-    let game_data_path = PathBuf::from(g_dir);
-    let resources_path = PathBuf::from(r_dir);
-
-    // Call android_init to set working directory, Rayon pool, and panic hook
-    super::android_init::initialize_engine_environment(
-        &game_data_path,
-        &resources_path,
-        threads as usize,
-    );
-
-    let is_opengl = backend_str == "opengl";
-    horizon_client::android_runtime::configure_graphics(is_opengl);
-    let is_vulkan_batching = backend_str == "vulkan_batching";
-    horizon_client::android_runtime::configure_gpu(is_vulkan_batching);
-
-    unsafe {
-        std::env::set_var("HORIZON_RESOURCES_DIR", &resources_path);
-        std::env::set_var("HORIZON_DIRECT_GAME", "1");
-        std::env::set_var("HORIZON_USERNAME", &user);
-        std::env::set_var("HORIZON_GRAPHICS_API", if is_opengl { "opengl" } else { "vulkan" });
-    }
-
-    log::info!(
-        "[HorizonBridge] Native environment initialized. Touch scheme: {}, Backend: {}, User: {}",
-        touch_scheme,
-        backend_str,
-        user
-    );
 }
 
 /// JNI: Called when user types characters on Android Soft Keyboard.

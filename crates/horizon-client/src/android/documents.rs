@@ -129,9 +129,39 @@ pub fn picker_failed(error: &str) {
 /// Called by the approved Activity result bridge, never from a game tick.
 /// Keep a conventional JNI export as well as explicit registration: Android
 /// may restore a picker result before the IME bridge has been initialized.
-#[unsafe(export_name = "Java_dev_horizon_android_HorizonActivity_nativeDocumentResult")]
-#[unsafe(export_name = "Java_com_mattz1415_horizon_HorizonActivity_nativeDocumentResult")]
-#[unsafe(export_name = "Java_com_mattz1415_horizon_HorizonGameActivity_nativeDocumentResult")]
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_dev_horizon_android_HorizonActivity_nativeDocumentResult(
+    env: JNIEnv<'_>,
+    activity: JObject<'_>,
+    request: i32,
+    result: i32,
+    uri: JString<'_>,
+) {
+    document_result(env, activity, request, result, uri);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonActivity_nativeDocumentResult(
+    env: JNIEnv<'_>,
+    activity: JObject<'_>,
+    request: i32,
+    result: i32,
+    uri: JString<'_>,
+) {
+    document_result(env, activity, request, result, uri);
+}
+
+#[unsafe(no_mangle)]
+pub extern "system" fn Java_com_mattz1415_horizon_HorizonGameActivity_nativeDocumentResult(
+    env: JNIEnv<'_>,
+    activity: JObject<'_>,
+    request: i32,
+    result: i32,
+    uri: JString<'_>,
+) {
+    document_result(env, activity, request, result, uri);
+}
+
 pub extern "system" fn document_result(
     mut env: JNIEnv<'_>,
     activity: JObject<'_>,
