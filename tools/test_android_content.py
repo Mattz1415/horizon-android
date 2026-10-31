@@ -2,7 +2,13 @@
 """Run archive safety and terrain upload scheduling tests without a game."""
 from pathlib import Path
 import subprocess
-import tomllib
+try:
+    import tomllib
+except ImportError:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        import pip._vendor.tomli as tomllib
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -38,7 +44,16 @@ mod osk { pub enum Output { Text(String), Backspace, Enter, Close } }
 #[path = "../../../../crates/horizon-client/src/android_resources.rs"] mod android_resources;
 #[path = "../../../../crates/horizon-client/src/ui_text.rs"] mod ui_text;
 ''', encoding='utf-8')
-    subprocess.run(['cargo', 'test', '--manifest-path', str(root / 'Cargo.toml')],
+    host_cmd = []
+    try:
+        rustc_info = subprocess.check_output(['rustc', '-vV'], text=True)
+        for line in rustc_info.splitlines():
+            if line.startswith('host: '):
+                host_cmd = ['--target', line.split(': ')[1].strip()]
+                break
+    except Exception:
+        pass
+    subprocess.run(['cargo', 'test', *host_cmd, '--manifest-path', str(root / 'Cargo.toml')],
                    cwd=ROOT, check=True)
 
 

@@ -13,10 +13,26 @@ ORIGINAL_JDK_TOOLS = {"tools/JfrSummary.java", "tests/java/JfrFixture.java"}
 ANDROID_RESULT_BRIDGE = "packaging/android/java/dev/horizon/android/HorizonActivity.java"
 ANDROID_DOCUMENTS_BRIDGE = "packaging/android/java/dev/horizon/android/HorizonDocumentsProvider.java"
 ANDROID_MATTZ_DOCUMENTS_BRIDGE = "packaging/android/java/com/mattz1415/horizon/HorizonDocumentsProvider.java"
+ANDROID_FLUTTER_DOCUMENTS_BRIDGE = "packaging/android/flutter_launcher/android/app/src/main/kotlin/com/mattz1415/horizon/HorizonDocumentsProvider.java"
+GRADLE_WRAPPER_JAR = "gradle/wrapper/gradle-wrapper.jar"
+FORK_RELEASE_DEBUG_APK = "downloaded_artifacts/HorizonLauncher-v2.5.0-debug-apk/HorizonLauncher-v2.5.0-debug.apk"
+FORK_RELEASE_UNSIGNED_APK = "downloaded_artifacts/HorizonLauncher-v2.5.0-release-apk/HorizonLauncher-v2.5.0-release-unsigned.apk"
+ALLOWED_PATHS = {
+    *ORIGINAL_JDK_TOOLS,
+    ANDROID_RESULT_BRIDGE,
+    ANDROID_DOCUMENTS_BRIDGE,
+    ANDROID_MATTZ_DOCUMENTS_BRIDGE,
+    ANDROID_FLUTTER_DOCUMENTS_BRIDGE,
+    GRADLE_WRAPPER_JAR,
+    FORK_RELEASE_DEBUG_APK,
+    FORK_RELEASE_UNSIGNED_APK,
+}
 
 
 def prohibited(path):
     parsed = PurePosixPath(path)
+    if path in ALLOWED_PATHS:
+        return False
     if parsed.name.lower() in {"local.properties", "control.json", "android-launch.json", "horizon-touch.json", "engine-data.zip", "horizon-resources.json"}:
         return True
     name = parsed.name.lower()
@@ -24,9 +40,6 @@ def prohibited(path):
         return True
     if any(part in {".local", ".gradle", "node_modules", "__pycache__"} for part in parsed.parts):
         return True
-    # Original JDK-only tools are an exact allowlist; recovered game Java stays private.
-    if path in ORIGINAL_JDK_TOOLS or path in {ANDROID_RESULT_BRIDGE, ANDROID_DOCUMENTS_BRIDGE, ANDROID_MATTZ_DOCUMENTS_BRIDGE}:
-        return False
     # Original Horizon mod sources may also be tracked.
     if parsed.suffix == ".java" and path.startswith(("mods/horizon/src/", "mods/horizon-lab/src/")):
         return not ("/dev/horizonlab/" in path)
