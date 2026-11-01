@@ -45,6 +45,7 @@ class _LogsPageState extends State<LogsPage> {
 
   @override
   Widget build(BuildContext context) {
+    Hz.watch(context);
     final text = (_logs?[_which] as String?) ?? '';
     final modified = (_logs?['${_which}Modified'] as num?)?.toInt() ?? 0;
     final Widget body;
@@ -72,7 +73,7 @@ class _LogsPageState extends State<LogsPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(children: [
-            Expanded(child: Text('Ditulis ${formatAgo(modified)}, ${text.split('\n').length} baris terakhir', style: Hz.label)),
+            Expanded(child: Text('Ditulis ${formatAgo(modified)}, ${text.split('\n').length} baris terakhir', style: Hz.small)),
             Btn(
               label: 'Salin',
               icon: 'notes',
@@ -97,7 +98,7 @@ class _LogsPageState extends State<LogsPage> {
           const SizedBox(height: 8),
           Container(
             constraints: const BoxConstraints(maxHeight: 420),
-            decoration: BoxDecoration(color: const Color(0xFF0A0910), borderRadius: Hz.r12, border: Border.all(color: Hz.line)),
+            decoration: BoxDecoration(color: Hz.surface, borderRadius: Hz.r10, border: Border.all(color: Hz.line)),
             child: Scrollbar(
               child: SingleChildScrollView(
                 reverse: true,
@@ -110,7 +111,7 @@ class _LogsPageState extends State<LogsPage> {
       );
     }
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
         Stagger(children: [
           PageHeader(

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -22,38 +24,109 @@ void main() {
   runApp(const HorizonApp());
 }
 
-class HorizonApp extends StatelessWidget {
+class HorizonApp extends StatefulWidget {
   const HorizonApp({super.key});
 
   @override
+  State<HorizonApp> createState() => _HorizonAppState();
+}
+
+class _HorizonAppState extends State<HorizonApp> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  final app = Launcher();
+  late final AnimationController _fade = AnimationController(vsync: this, duration: const Duration(milliseconds: 420));
+  Palette _from = malam;
+  Palette _to = malam;
+  Timer? _clock;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    app.addListener(_retheme);
+    _fade.addListener(() => setState(() => Hz.p = Palette.lerp(_from, _to, Hz.ease.transform(_fade.value))));
+    // Auto theme follows the clock; check once a minute.
+    _clock = Timer.periodic(const Duration(minutes: 1), (_) => _retheme());
+    app.start();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Back from the game: worlds, logs, screenshots and options may have changed in there.
+    if (state == AppLifecycleState.resumed) {
+      app.loadWorlds();
+      app.loadOptions();
+      app.loadAddons();
+      app.loadDevice();
+      app.loadScreenshots();
+      _retheme();
+    }
+  }
+
+  Palette _wanted() {
+    if (app.theme == 'auto') {
+      final h = DateTime.now().hour;
+      return h >= 6 && h < 18 ? siang : malam;
+    }
+    return palettes[app.theme] ?? malam;
+  }
+
+  void _retheme() {
+    final next = _wanted();
+    if (next.name == _to.name) return;
+    _from = Hz.p;
+    _to = next;
+    final calm = WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+    if (calm) {
+      _fade.value = 1;
+      setState(() => Hz.p = next);
+    } else {
+      _fade.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _clock?.cancel();
+    _fade.dispose();
+    app.removeListener(_retheme);
+    app.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Horizon',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        fontFamily: 'Geist',
-        scaffoldBackgroundColor: Hz.page,
-        colorScheme: const ColorScheme.dark(
-          primary: Hz.accent,
-          onPrimary: Hz.page,
-          secondary: Hz.accent,
-          surface: Hz.surface,
-          onSurface: Hz.ink,
-          error: Hz.danger,
+    final p = Hz.p;
+    return HzScope(
+      palette: p,
+      child: MaterialApp(
+        title: 'Horizon',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          brightness: p.dark ? Brightness.dark : Brightness.light,
+          fontFamily: 'Geist',
+          scaffoldBackgroundColor: p.page,
+          colorScheme: (p.dark ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(
+            primary: p.face,
+            onPrimary: p.onFace,
+            secondary: p.accent,
+            surface: p.surface,
+            onSurface: p.ink,
+            error: p.danger,
+          ),
+          tooltipTheme: TooltipThemeData(
+            decoration: BoxDecoration(color: p.raised, borderRadius: Hz.r10, border: Border.all(color: p.line)),
+            textStyle: Hz.small.copyWith(color: p.ink),
+          ),
+          textSelectionTheme: TextSelectionThemeData(
+            cursorColor: p.accent,
+            selectionColor: p.accent.withOpacity(0.35),
+            selectionHandleColor: p.accent,
+          ),
         ),
-        tooltipTheme: TooltipThemeData(
-          decoration: BoxDecoration(color: Hz.plate, borderRadius: Hz.r8, border: Border.all(color: Hz.line)),
-          textStyle: Hz.small.copyWith(color: Hz.ink),
-        ),
-        textSelectionTheme: TextSelectionThemeData(
-          cursorColor: Hz.accent,
-          selectionColor: Hz.accent.withOpacity(0.35),
-          selectionHandleColor: Hz.accent,
-        ),
+        home: Shell(app: app),
       ),
-      home: const Shell(),
     );
   }
 }
@@ -67,48 +140,26 @@ class _Dest {
 
 const _dests = [
   _Dest('play', 'Main'),
-  _Dest('package', 'Add-on'),
+  _Dest('package', 'Mod'),
   _Dest('globe', 'Dunia'),
   _Dest('user', 'Akun'),
-  _Dest('sliders', 'Pengaturan'),
+  _Dest('sliders', 'Atur'),
   _Dest('terminal', 'Log'),
 ];
 
 class Shell extends StatefulWidget {
-  const Shell({super.key});
+  const Shell({super.key, required this.app});
+
+  final Launcher app;
 
   @override
   State<Shell> createState() => _ShellState();
 }
 
-class _ShellState extends State<Shell> with WidgetsBindingObserver {
-  final app = Launcher();
+class _ShellState extends State<Shell> {
   int _index = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    app.start();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Back from the game: worlds, logs and options may have changed in there.
-    if (state == AppLifecycleState.resumed) {
-      app.loadWorlds();
-      app.loadOptions();
-      app.loadAddons();
-      app.loadDevice();
-    }
-  }
-
-  @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    app.dispose();
-    super.dispose();
-  }
+  Launcher get app => widget.app;
 
   void _go(int i) => setState(() => _index = i);
 
@@ -121,27 +172,42 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
         _ => PlayPage(app: app, goTo: _go),
       };
 
+  double _rise() => switch (app.phase) {
+        Phase.ready => 1,
+        Phase.downloading || Phase.paused => 0.15 + 0.7 * app.progress,
+        Phase.checking => 0.1,
+        _ => 0,
+      };
+
   @override
   Widget build(BuildContext context) {
+    Hz.watch(context);
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: ListenableBuilder(
         listenable: app,
-        builder: (context, _) => LiquidBackdrop(
-          energy: app.phase == Phase.downloading ? 1 : 0,
+        builder: (context, _) => HorizonBackdrop(
+          rise: _rise(),
+          busy: app.phase == Phase.downloading,
           child: SafeArea(
-            child: Row(
+            child: Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 0, 12),
-                  child: _Rail(index: _index, onTap: _go, app: app),
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                  child: _TopBar(index: _index, onTap: _go, app: app),
                 ),
                 Expanded(
                   child: AnimatedSwitcher(
                     duration: Hz.calm(context) ? Duration.zero : Hz.move,
                     switchInCurve: Hz.ease,
                     switchOutCurve: Curves.easeIn,
-                    transitionBuilder: (child, a) => FadeTransition(opacity: a, child: child),
+                    transitionBuilder: (child, a) => FadeTransition(
+                      opacity: a,
+                      child: SlideTransition(
+                        position: Tween(begin: const Offset(0, 0.015), end: Offset.zero).animate(a),
+                        child: child,
+                      ),
+                    ),
                     child: KeyedSubtree(key: ValueKey(_index), child: _page()),
                   ),
                 ),
@@ -154,69 +220,64 @@ class _ShellState extends State<Shell> with WidgetsBindingObserver {
   }
 }
 
-/// Vertical glass rail: landscape screens are short, so navigation goes on the side.
-/// The selected marker slides between items instead of jumping.
-class _Rail extends StatelessWidget {
-  const _Rail({required this.index, required this.onTap, required this.app});
+/// One glass bar across the top: the wordmark, the six places as tabs with a blue
+/// horizon line that slides under the picked one, and a theme switch.
+class _TopBar extends StatelessWidget {
+  const _TopBar({required this.index, required this.onTap, required this.app});
 
   final int index;
   final ValueChanged<int> onTap;
   final Launcher app;
 
-  static const _item = 56.0;
-
   @override
   Widget build(BuildContext context) {
-    final compact = MediaQuery.sizeOf(context).height < 420;
-    final itemH = compact ? 46.0 : _item;
+    final w = MediaQuery.sizeOf(context).width;
+    final labels = w >= 720;
     return Glass(
-      radius: Hz.r16,
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+      radius: Hz.r14,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       child: SizedBox(
-        width: 72,
-        child: Column(
+        height: 52,
+        child: Row(
           children: [
             Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Text('H', style: Hz.pixel.copyWith(color: Hz.accent, fontSize: compact ? 18 : 22)),
+              padding: const EdgeInsets.only(left: 6, right: 14),
+              child: Text('Horizon', style: Hz.display.copyWith(fontSize: 19, color: Hz.ink)),
             ),
             Expanded(
-              child: SingleChildScrollView(
-                child: Stack(
+              child: LayoutBuilder(builder: (context, c) {
+                final itemW = c.maxWidth / _dests.length;
+                return Stack(
                   children: [
                     AnimatedPositioned(
                       duration: Hz.calm(context) ? Duration.zero : Hz.move,
                       curve: Hz.ease,
-                      top: index * itemH,
-                      left: 0,
-                      right: 0,
-                      height: itemH,
-                      child: Container(
-                        margin: const EdgeInsets.all(3),
-                        decoration: BoxDecoration(
-                          color: Hz.face.withOpacity(0.85),
-                          borderRadius: Hz.r12,
-                        ),
-                      ),
+                      left: itemW * index + 10,
+                      width: itemW - 20,
+                      bottom: 0,
+                      height: 2,
+                      child: ColoredBox(color: Hz.accent),
                     ),
-                    Column(
-                      children: [
-                        for (var i = 0; i < _dests.length; i++)
-                          _RailItem(
+                    Row(children: [
+                      for (var i = 0; i < _dests.length; i++)
+                        SizedBox(
+                          width: itemW,
+                          child: _Tab(
                             key: ValueKey('nav-$i'),
                             dest: _dests[i],
                             selected: i == index,
-                            height: itemH,
-                            compact: compact,
+                            showLabel: labels,
                             badge: i == 0 && app.phase == Phase.downloading,
                             onTap: () => onTap(i),
                           ),
-                      ],
-                    ),
+                        ),
+                    ]),
                   ],
-                ),
-              ),
+                );
+              }),
             ),
+            const SizedBox(width: 6),
+            _ThemeButton(app: app),
           ],
         ),
       ),
@@ -224,60 +285,48 @@ class _Rail extends StatelessWidget {
   }
 }
 
-class _RailItem extends StatelessWidget {
-  const _RailItem({
+class _Tab extends StatelessWidget {
+  const _Tab({
     super.key,
     required this.dest,
     required this.selected,
-    required this.height,
-    required this.compact,
+    required this.showLabel,
     required this.onTap,
     this.badge = false,
   });
 
   final _Dest dest;
   final bool selected;
-  final double height;
-  final bool compact;
+  final bool showLabel;
   final bool badge;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? Colors.white : Hz.inkSoft;
+    final color = selected ? Hz.ink : Hz.muted;
     return Semantics(
       selected: selected,
       child: Tooltip(
-        message: dest.label,
+        message: badge ? '${dest.label}, sedang mengunduh' : dest.label,
         child: Pressable(
           onTap: onTap,
           semanticLabel: dest.label,
           child: SizedBox(
-            height: height,
-            width: double.infinity,
-            child: Column(
+            height: 52,
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Stack(clipBehavior: Clip.none, children: [
-                  PixelIcon(dest.icon, size: 20, color: color),
-                  if (badge)
-                    const Positioned(
-                      right: -4,
-                      top: -2,
-                      child: SizedBox.square(
-                        dimension: 7,
-                        child: DecoratedBox(decoration: BoxDecoration(color: Hz.warn, shape: BoxShape.circle)),
-                      ),
+                badge ? const _Spinner() : PixelIcon(dest.icon, size: 18, color: selected ? Hz.accent : color),
+                if (showLabel) ...[
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      dest.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: Hz.body.copyWith(color: color, fontWeight: selected ? FontWeight.w600 : FontWeight.w400),
                     ),
-                ]),
-                if (!compact) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    dest.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.fade,
-                    softWrap: false,
-                    style: Hz.label.copyWith(fontSize: 10.5, color: color, letterSpacing: 0),
                   ),
                 ],
               ],
@@ -285,6 +334,41 @@ class _RailItem extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _Spinner extends StatelessWidget {
+  const _Spinner();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 16,
+      child: Hz.calm(context)
+          ? PixelIcon('download', size: 16, color: Hz.accent)
+          : CircularProgressIndicator(strokeWidth: 2, color: Hz.accent),
+    );
+  }
+}
+
+/// Cycles auto, malam, siang, samudra. The icon says what is on now.
+class _ThemeButton extends StatelessWidget {
+  const _ThemeButton({required this.app});
+
+  final Launcher app;
+
+  static const _order = ['auto', 'malam', 'siang', 'samudra'];
+  static const _names = {'auto': 'Otomatis', 'malam': 'Malam', 'siang': 'Siang', 'samudra': 'Samudra'};
+
+  @override
+  Widget build(BuildContext context) {
+    final next = _order[(_order.indexOf(app.theme) + 1) % _order.length];
+    return IconBtn(
+      icon: app.theme == 'auto' ? 'clock' : (app.theme == 'siang' ? 'zap' : 'star'),
+      label: 'Tema ${_names[app.theme]}, ketuk untuk ${_names[next]}',
+      color: Hz.ink,
+      onTap: () => app.setTheme(next),
     );
   }
 }

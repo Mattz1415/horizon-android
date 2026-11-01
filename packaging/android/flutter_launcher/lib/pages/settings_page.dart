@@ -11,11 +11,12 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Hz.watch(context);
     final o = app.options;
     final d = app.device;
     final cores = (d?['cores'] as num?)?.toInt() ?? 8;
     return ListView(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
         Stagger(children: [
           const PageHeader(
@@ -24,6 +25,17 @@ class SettingsPage extends StatelessWidget {
           ),
           LayoutBuilder(builder: (context, c) {
             final two = c.maxWidth >= 820;
+            final look = _group('Tampilan launcher', [
+              Text('Tema', style: Hz.body.copyWith(color: Hz.ink)),
+              const SizedBox(height: 4),
+              Text('Otomatis memakai Siang dari jam 06.00 sampai 18.00, Malam di luar itu.', style: Hz.small),
+              const SizedBox(height: 8),
+              Segmented<String>(
+                options: const [('auto', 'Otomatis'), ('malam', 'Malam'), ('siang', 'Siang'), ('samudra', 'Samudra')],
+                value: app.theme,
+                onChanged: app.setTheme,
+              ),
+            ]);
             final view = _group('Tampilan dunia', [
               SliderRow(
                 label: 'Jarak render',
@@ -105,7 +117,7 @@ class SettingsPage extends StatelessWidget {
             final controls = _group('Grafis dan kontrol', [
               Text('API grafis', style: Hz.body.copyWith(color: Hz.ink)),
               const SizedBox(height: 4),
-              const Text('Pilih OpenGL ES kalau game keluar sendiri atau layar hitam di Vulkan.', style: Hz.small),
+              Text('Pilih OpenGL ES kalau game keluar sendiri atau layar hitam di Vulkan.', style: Hz.small),
               const SizedBox(height: 8),
               Segmented<String>(
                 options: const [('vulkan', 'Vulkan'), ('opengl', 'OpenGL ES')],
@@ -123,27 +135,29 @@ class SettingsPage extends StatelessWidget {
               ])
                 _Radio(label: label, selected: app.touchScheme == i, onTap: () => app.setTouch(i)),
               const SizedBox(height: 4),
-              const Text('Tata letak tombol bisa digeser dari menu sentuh di dalam game.', style: Hz.small),
+              Text('Tata letak tombol bisa digeser dari menu sentuh di dalam game.', style: Hz.small),
             ]);
             final device = _group('Perangkat', [
               if (d == null)
-                const Text('Memuat info perangkat...', style: Hz.small)
+                Text('Memuat info perangkat...', style: Hz.small)
               else
                 Wrap(spacing: 28, runSpacing: 14, children: [
-                  Fact(label: 'MODEL', value: '${d['model']}'),
-                  Fact(label: 'ANDROID', value: '${d['android']} (API ${d['sdk']})'),
+                  Fact(label: 'Model', value: '${d['model']}'),
+                  Fact(label: 'Android', value: '${d['android']} (API ${d['sdk']})'),
                   Fact(label: 'ABI', value: '${d['abi']}'),
-                  Fact(label: 'INTI CPU', value: '${d['cores']}'),
+                  Fact(label: 'Inti CPU', value: '${d['cores']}'),
                   Fact(label: 'RAM', value: '${formatBytes((d['availRam'] as num?) ?? 0)} bebas dari ${formatBytes((d['totalRam'] as num?) ?? 0)}'),
-                  Fact(label: 'PENYIMPANAN BEBAS', value: formatBytes((d['freeStorage'] as num?) ?? 0)),
-                  Fact(label: 'FILE GAME', value: formatBytes((d['resourcesSize'] as num?) ?? 0)),
-                  Fact(label: 'DATA PEMAIN', value: formatBytes((d['gameDataSize'] as num?) ?? 0)),
+                  Fact(label: 'Penyimpanan bebas', value: formatBytes((d['freeStorage'] as num?) ?? 0)),
+                  Fact(label: 'File game', value: formatBytes((d['resourcesSize'] as num?) ?? 0)),
+                  Fact(label: 'Data pemain', value: formatBytes((d['gameDataSize'] as num?) ?? 0)),
                 ]),
             ]);
             if (!two) {
-              return Column(children: [view, const SizedBox(height: 12), perf, const SizedBox(height: 12), controls, const SizedBox(height: 12), device]);
+              return Column(children: [look, const SizedBox(height: 12), view, const SizedBox(height: 12), perf, const SizedBox(height: 12), controls, const SizedBox(height: 12), device]);
             }
             return Column(children: [
+              look,
+              const SizedBox(height: 12),
               Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Expanded(child: view),
                 const SizedBox(width: 12),
@@ -184,13 +198,14 @@ class _Radio extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    Hz.watch(context);
     return Semantics(
       inMutuallyExclusiveGroup: true,
       checked: selected,
       child: Pressable(
         onTap: onTap,
         semanticLabel: label,
-        borderRadius: Hz.r8,
+        borderRadius: Hz.r10,
         child: ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 44),
           child: Row(children: [
@@ -207,7 +222,7 @@ class _Radio extends StatelessWidget {
                   duration: Hz.quick,
                   width: selected ? 10 : 0,
                   height: selected ? 10 : 0,
-                  decoration: const BoxDecoration(color: Hz.accent, shape: BoxShape.circle),
+                  decoration: BoxDecoration(color: Hz.accent, shape: BoxShape.circle),
                 ),
               ),
             ),

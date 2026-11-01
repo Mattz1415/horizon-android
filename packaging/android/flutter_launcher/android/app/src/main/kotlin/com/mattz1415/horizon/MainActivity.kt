@@ -24,6 +24,7 @@ class MainActivity : FlutterActivity() {
     companion object {
         const val METHOD_CHANNEL = "com.vasysik.horizon/launcher"
         const val PROGRESS_EVENT_CHANNEL = "com.vasysik.horizon/progress"
+        const val REGISTRY_INDEX = "https://horizon-rust.github.io/horizon-mods/index.json"
 
         @JvmStatic
         var currentInstance: MainActivity? = null
@@ -160,16 +161,72 @@ class MainActivity : FlutterActivity() {
                             result.success(addons.list())
                         }
 
+                        "fetchRegistry" -> scope.launch {
+                            val cache = File(downloader.gameDataDir, "registry-index.json")
+                            try {
+                                val text = httpText(REGISTRY_INDEX)
+                                JSONObject(text)
+                                cache.parentFile?.mkdirs()
+                                val tmp = File(cache.parentFile, cache.name + ".tmp")
+                                tmp.writeText(text)
+                                tmp.renameTo(cache)
+                                withContext(Dispatchers.Main) {
+                                    result.success(mapOf("json" to text, "cached" to false, "fetched" to cache.lastModified()))
+                                }
+                            } catch (e: Exception) {
+                                withContext(Dispatchers.Main) {
+                                    if (cache.exists()) {
+                                        result.success(mapOf("json" to cache.readText(), "cached" to true, "fetched" to cache.lastModified(), "error" to (e.message ?: "")))
+                                    } else {
+                                        result.error("REGISTRY_FAILED", e.message ?: "Tidak ada koneksi", null)
+                                    }
+                                }
+                            }
+                        }
+
+                        "getScreenshots" -> scope.launch {
+                            val dir = File(downloader.gameDataDir, "screenshots")
+                            val shots = (dir.listFiles() ?: emptyArray())
+                                .filter { it.isFile && it.name.endsWith(".png", ignoreCase = true) }
+                                .sortedByDescending { it.lastModified() }
+                                .map { mapOf("path" to it.absolutePath, "name" to it.name, "modified" to it.lastModified(), "size" to it.length()) }
+                            withContext(Dispatchers.Main) { result.success(shots) }
+                        }
+
+                        "deleteScreenshot" -> {
+                            val name = call.argument<String>("name") ?: ""
+                            val dir = File(downloader.gameDataDir, "screenshots")
+                            val f = File(dir, name)
+                            if (name.isNotEmpty() && !name.contains('/') && f.canonicalFile.parentFile == dir.canonicalFile && f.delete()) result.success(true)
+                            else result.error("NOT_FOUND", "Screenshot tidak ditemukan", null)
+                        }
+
+                        "openUrl" -> {
+                            val url = call.argument<String>("url") ?: ""
+                            if (!url.startsWith("https://")) {
+                                result.error("INVALID_URL", "Hanya tautan https", null)
+                                return@setMethodCallHandler
+                            }
+                            try {
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                result.success(true)
+                            } catch (e: Exception) {
+                                result.error("NO_BROWSER", "Tidak ada aplikasi untuk membuka tautan", null)
+                            }
+                        }
+
                         "installModFromUrl" -> {
                             val url = call.argument<String>("url")
                             val type = call.argument<String>("type") ?: "mod"
+                            val sha = call.argument<String>("sha256")
+                            val name = call.argument<String>("fileName")
                             if (url == null) {
                                 result.error("INVALID_URL", "URL tidak boleh kosong", null)
                                 return@setMethodCallHandler
                             }
                             scope.launch {
                                 try {
-                                    val file = installAddon(url, LauncherStore.folderFor(type))
+                                    val file = installAddon(url, LauncherStore.folderFor(type), sha, name)
                                     withContext(Dispatchers.Main) { result.success(file.name) }
                                 } catch (e: Exception) {
                                     withContext(Dispatchers.Main) {
@@ -349,7 +406,20 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun installAddon(urlStr: String, targetSubdir: String): File {
+    private val http by lazy {
+        OkHttpClient.Builder().followRedirects(true).followSslRedirects(true)
+            .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+    }
+
+    private fun httpText(url: String): String =
+        http.newCall(Request.Builder().url(url).build()).execute().use { r ->
+            if (!r.isSuccessful) throw java.io.IOException("HTTP ${r.code}")
+            r.body?.string() ?: throw java.io.IOException("Respons kosong")
+        }
+
+    private fun installAddon(urlStr: String, targetSubdir: String, expectedSha: String? = null, fileName: String? = null): File {
         val resolvedUrl = when {
             urlStr.contains("playhorizon.dev/shaders/golden-hour") -> "https://github.com/Mattz1415/horizon-android/releases/latest/download/golden-hour.hshader"
             urlStr.contains("playhorizon.dev/shaders/vanilla-enhanced") -> "https://github.com/Mattz1415/horizon-android/releases/latest/download/vanilla-enhanced.hshader"
@@ -360,12 +430,8 @@ class MainActivity : FlutterActivity() {
             urlStr.contains("fullbright.hmod") -> "https://github.com/Mattz1415/horizon-android/releases/latest/download/fullbright.hmod"
             else -> urlStr
         }
-        val client = OkHttpClient.Builder()
-            .followRedirects(true)
-            .followSslRedirects(true)
-            .build()
         val request = Request.Builder().url(resolvedUrl).build()
-        client.newCall(request).execute().use { response ->
+        http.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw java.io.IOException("Gagal download: HTTP ${response.code}")
             val body = response.body ?: throw java.io.IOException("Empty body")
 
@@ -374,19 +440,36 @@ class MainActivity : FlutterActivity() {
                 "resourcepacks" -> ".zip"
                 else -> ".hmod"
             }
-            val filename = resolvedUrl.substringAfterLast("/").takeIf { it.contains(".") }
+            val filename = fileName?.takeIf { it.matches(Regex("[A-Za-z0-9._-]+")) && it.contains(".") }
+                ?: resolvedUrl.substringAfterLast("/").takeIf { it.contains(".") }
                 ?: "addon_${System.currentTimeMillis()}$ext"
 
             val dir = File(downloader.gameDataDir, targetSubdir).apply { mkdirs() }
             val destFile = File(dir, filename)
 
             val partial = File(dir, "$filename.part")
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
             FileOutputStream(partial).use { fos ->
-                body.byteStream().use { it.copyTo(fos) }
+                body.byteStream().use { input ->
+                    val buf = ByteArray(64 * 1024)
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        digest.update(buf, 0, n)
+                        fos.write(buf, 0, n)
+                    }
+                }
             }
             if (partial.length() == 0L) {
                 partial.delete()
                 throw java.io.IOException("File kosong dari server")
+            }
+            if (!expectedSha.isNullOrBlank()) {
+                val got = digest.digest().joinToString("") { "%02x".format(it) }
+                if (!got.equals(expectedSha.trim(), ignoreCase = true)) {
+                    partial.delete()
+                    throw java.io.IOException("Checksum tidak cocok, file ditolak")
+                }
             }
             destFile.delete()
             if (!partial.renameTo(destFile)) throw java.io.IOException("Gagal menyimpan $filename")

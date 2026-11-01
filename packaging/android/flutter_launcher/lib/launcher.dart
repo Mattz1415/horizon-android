@@ -79,6 +79,84 @@ class GameOptions {
       };
 }
 
+/// One project from the Horizon registry (horizon-rust/horizon-mods, the source of
+/// playhorizon.dev/mods). Only sandboxed `.hmod` files and resource packs run on
+/// Android; native mods are built into the desktop game by the desktop launcher.
+class RegistryItem {
+  RegistryItem(Map m)
+      : id = m['id'] as String? ?? '',
+        kind = m['kind'] as String? ?? 'mod',
+        name = m['name'] as String? ?? '',
+        summary = m['summary'] as String? ?? '',
+        description = m['description'] as String? ?? '',
+        authors = (m['authors'] as List? ?? const []).map((e) => '$e').toList(),
+        license = m['license'] as String? ?? '',
+        source = m['source'] as String? ?? '',
+        icon = m['icon'] as String?,
+        downloads = (m['downloads'] as num?)?.toInt(),
+        versions = (m['versions'] as List? ?? const []).whereType<Map>().map(RegistryVersion.new).toList();
+
+  final String id;
+  final String kind;
+  final String name;
+  final String summary;
+  final String description;
+  final List<String> authors;
+  final String license;
+  final String source;
+  final String? icon;
+  final int? downloads;
+  final List<RegistryVersion> versions;
+
+  /// The newest version this phone can run, or null.
+  RegistryVersion? get androidVersion {
+    for (final v in versions) {
+      if (kind == 'mod' && v.fileName.endsWith('.hmod')) return v;
+      if (kind == 'resourcepack' && v.fileName.endsWith('.zip')) return v;
+    }
+    return null;
+  }
+
+  bool get runsOnAndroid => androidVersion != null;
+  String get type => kind == 'resourcepack' ? 'pack' : 'mod';
+  String get page => 'https://playhorizon.dev/mods/$id';
+  RegistryVersion? get latest => versions.isEmpty ? null : versions.first;
+}
+
+class RegistryVersion {
+  RegistryVersion(Map m)
+      : version = m['version'] as String? ?? '',
+        published = m['published'] as String? ?? '',
+        changelog = m['changelog'] as String? ?? '',
+        game = m['game'] as String? ?? '',
+        fileName = (m['file'] as Map?)?['name'] as String? ?? '',
+        url = (m['file'] as Map?)?['url'] as String? ?? '',
+        size = ((m['file'] as Map?)?['size'] as num?)?.toInt() ?? 0,
+        sha256 = (m['file'] as Map?)?['sha256'] as String? ?? '';
+
+  final String version;
+  final String published;
+  final String changelog;
+  final String game;
+  final String fileName;
+  final String url;
+  final int size;
+  final String sha256;
+}
+
+class Screenshot {
+  Screenshot(Map m)
+      : path = m['path'] as String? ?? '',
+        name = m['name'] as String? ?? '',
+        modified = (m['modified'] as num?)?.toInt() ?? 0,
+        size = (m['size'] as num?)?.toInt() ?? 0;
+
+  final String path;
+  final String name;
+  final int modified;
+  final int size;
+}
+
 enum Phase { checking, missing, downloading, paused, ready, failed }
 
 /// Everything the launcher knows, in one place, so pages stay plain views.
@@ -99,6 +177,9 @@ class Launcher extends ChangeNotifier {
   int touchScheme = 0;
   int lastPlayed = 0;
 
+  /// 'auto' follows the clock: siang from 06:00 to 18:00, malam otherwise.
+  String theme = 'auto';
+
   GameOptions options = GameOptions();
   bool optionsLoaded = false;
 
@@ -107,6 +188,15 @@ class Launcher extends ChangeNotifier {
   List<World>? worlds;
   String? worldsError;
   Map<String, dynamic>? device;
+
+  List<RegistryItem>? registry;
+  String? registryError;
+  bool registryCached = false;
+  int registryFetched = 0;
+  bool registryLoading = false;
+
+  List<Screenshot>? screenshots;
+  String? screenshotsError;
 
   final Set<String> installing = {};
   bool launching = false;
@@ -125,6 +215,7 @@ class Launcher extends ChangeNotifier {
       loadAddons(),
       loadWorlds(),
       loadDevice(),
+      loadScreenshots(),
     ]);
   }
 
@@ -199,6 +290,8 @@ class Launcher extends ChangeNotifier {
       touchScheme = ((m['touchScheme'] as num?)?.toInt() ?? 0).clamp(0, 3);
       lastPlayed = (m['lastPlayed'] as num?)?.toInt() ?? 0;
       account = m['account'] as String? ?? '';
+      final t = m['theme'] as String? ?? 'auto';
+      theme = t == 'auto' || palettesKnown.contains(t) ? t : 'auto';
     } catch (_) {}
     try {
       final raw = await _channel.invokeMethod<String>('getAccounts') ?? '[]';
@@ -221,6 +314,7 @@ class Launcher extends ChangeNotifier {
           'touchScheme': touchScheme,
           'lastPlayed': lastPlayed,
           'account': account,
+          'theme': theme,
         }),
       });
     });
@@ -236,6 +330,37 @@ class Launcher extends ChangeNotifier {
     backend = v;
     _saveLauncher();
     notifyListeners();
+  }
+
+  static const palettesKnown = {'malam', 'siang', 'samudra'};
+
+  void setTheme(String v) {
+    theme = v;
+    _saveLauncher();
+    notifyListeners();
+  }
+
+  /// Quick presets from the play page; each one only sets values inside the game's own ranges.
+  void applyPreset(String preset) {
+    updateOptions((o) {
+      switch (preset) {
+        case 'hemat':
+          o.renderDistance = 6;
+          o.simulationDistance = 6;
+          o.maxFps = 60;
+          o.lodDistance = 0;
+        case 'jauh':
+          o.renderDistance = 24;
+          o.simulationDistance = 12;
+          o.maxFps = 120;
+          o.lodDistance = 128;
+        default:
+          o.renderDistance = 12;
+          o.simulationDistance = 10;
+          o.maxFps = 90;
+          o.lodDistance = 0;
+      }
+    });
   }
 
   void setTouch(int v) {
@@ -309,11 +434,84 @@ class Launcher extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String?> install(String url, String type, String key) async {
+  Future<void> loadRegistry() async {
+    if (registryLoading) return;
+    registryLoading = true;
+    notifyListeners();
+    try {
+      final r = await _channel.invokeMethod<Map>('fetchRegistry');
+      final m = jsonDecode(r?['json'] as String? ?? '{}') as Map<String, dynamic>;
+      final revoked = {for (final e in (m['revoked'] as List? ?? const [])) if (e is Map) '${e['id'] ?? e['file'] ?? ''}'};
+      registry = (m['projects'] as List? ?? const [])
+          .whereType<Map>()
+          .map(RegistryItem.new)
+          .where((p) => p.id.isNotEmpty && !revoked.contains(p.id))
+          .toList();
+      registryCached = r?['cached'] == true;
+      registryFetched = (r?['fetched'] as num?)?.toInt() ?? 0;
+      registryError = null;
+    } on PlatformException catch (e) {
+      registryError = e.message ?? 'Katalog tidak bisa dimuat';
+    } on MissingPluginException {
+      registry = [];
+    } on FormatException {
+      registryError = 'Isi katalog tidak terbaca';
+    } finally {
+      registryLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String?> installRegistry(RegistryItem p) async {
+    final v = p.androidVersion;
+    if (v == null) return 'Tidak tersedia untuk Android';
+    return install(v.url, p.type, p.id, sha256: v.sha256, fileName: v.fileName);
+  }
+
+  Future<void> loadScreenshots() async {
+    try {
+      final list = await _channel.invokeMethod<List>('getScreenshots') ?? [];
+      screenshots = list.whereType<Map>().map(Screenshot.new).toList();
+      screenshotsError = null;
+    } on PlatformException catch (e) {
+      screenshotsError = e.message;
+    } on MissingPluginException {
+      screenshots = [];
+    }
+    notifyListeners();
+  }
+
+  Future<String?> deleteScreenshot(Screenshot s) async {
+    try {
+      await _channel.invokeMethod('deleteScreenshot', {'name': s.name});
+      await loadScreenshots();
+      return null;
+    } on PlatformException catch (e) {
+      return e.message;
+    }
+  }
+
+  Future<String?> openUrl(String url) async {
+    try {
+      await _channel.invokeMethod('openUrl', {'url': url});
+      return null;
+    } on PlatformException catch (e) {
+      return e.message;
+    } on MissingPluginException {
+      return null;
+    }
+  }
+
+  Future<String?> install(String url, String type, String key, {String? sha256, String? fileName}) async {
     installing.add(key);
     notifyListeners();
     try {
-      await _channel.invokeMethod('installModFromUrl', {'url': url, 'type': type});
+      await _channel.invokeMethod('installModFromUrl', {
+        'url': url,
+        'type': type,
+        if (sha256 != null) 'sha256': sha256,
+        if (fileName != null) 'fileName': fileName,
+      });
       await loadAddons();
       return null;
     } on PlatformException catch (e) {
