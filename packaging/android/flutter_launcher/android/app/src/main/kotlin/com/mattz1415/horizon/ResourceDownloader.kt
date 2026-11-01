@@ -15,6 +15,7 @@ import java.io.*
 import java.net.InetAddress
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.file.Files
 import java.security.MessageDigest
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -56,6 +57,7 @@ class ResourceDownloader(private val context: Context) {
 
     companion object {
         private const val TAG = "ResourceDownloader"
+        private const val BUF = 256 * 1024
         const val VERSION = "26.3"
         val FAST_BUNDLE_URLS = listOf(
             "https://github.com/Mattz1415/horizon-android/releases/download/v2.7.8/horizon-resources-26.3.zip",
@@ -269,57 +271,18 @@ class ResourceDownloader(private val context: Context) {
             if (!success) return@withContext false
 
             listener.onProgress("Ekstraksi", 0.82, 0, "Mengekstrak aset, audio, dan kontrol Bedrock...")
-            ZipInputStream(BufferedInputStream(FileInputStream(tempZip))).use { zipIn ->
-                val buffer = ByteArray(65536)
-                var entry: ZipEntry? = zipIn.nextEntry
-                var count = 0
-                while (entry != null) {
-                    val outFile = File(stagingDir, entry.name)
-                    if (outFile.canonicalPath.startsWith(stagingDir.canonicalPath)) {
-                        if (entry.isDirectory) {
-                            outFile.mkdirs()
-                        } else {
-                            outFile.parentFile?.mkdirs()
-                            FileOutputStream(outFile).use { out ->
-                                var len: Int
-                                while (zipIn.read(buffer).also { len = it } != -1) {
-                                    out.write(buffer, 0, len)
-                                }
-                            }
-                        }
-                    }
-                    count++
-                    if (count % 250 == 0) {
-                        listener.onProgress("Ekstraksi", 0.82 + (0.10 * (count.toDouble() / 5500.0)).coerceAtMost(0.10), 0, "Mengekstrak $count file aset...")
-                    }
-                    zipIn.closeEntry()
-                    entry = zipIn.nextEntry
+            val names = FileInputStream(tempZip).use { raw ->
+                extractZip(raw, stagingDir, tempZip.length()) { done, total, files ->
+                    listener.onProgress("Ekstraksi", 0.82 + 0.12 * done / total, 0, "Mengekstrak $files file aset...")
                 }
             }
             tempZip.delete()
 
-            listener.onProgress("Engine Tables", 0.93, 0, "Mengekstrak tabel fakta internal...")
+            listener.onProgress("Engine Tables", 0.95, 0, "Mengekstrak tabel fakta internal...")
             extractBundledOrFallbackFacts(stagingDir)
 
-            shieldAllAssets(stagingDir)
-
-            listener.onProgress("Verifikasi", 0.97, 0, "Menyimpan konfigurasi instalasi...")
-            val sha256 = computeDirHash(stagingDir)
-            File(stagingDir, ".prepared_sha256").writeText(sha256)
-            File(stagingDir, "android-downloads-v2.json").writeText("{\"schema\":2}")
-            File(stagingDir, "audio-complete.json").writeText("{}")
-
-            if (targetDir.exists()) targetDir.deleteRecursively()
-            targetDir.mkdirs()
-            copyDirectory(stagingDir, targetDir)
-            shieldAllAssets(targetDir)
-
-            if (localTargetDir.exists()) localTargetDir.deleteRecursively()
-            localTargetDir.mkdirs()
-            copyDirectory(stagingDir, localTargetDir)
-            shieldAllAssets(localTargetDir)
-
-            stagingDir.deleteRecursively()
+            listener.onProgress("Verifikasi", 0.98, 0, "Menyimpan konfigurasi instalasi...")
+            val sha256 = finalizeStaging(hashNames(names))
 
             listener.onProgress("Selesai", 1.0, 0, "Minecraft 26.3 siap dimainkan!")
             listener.onComplete(targetDir.absolutePath, sha256)
@@ -327,16 +290,14 @@ class ResourceDownloader(private val context: Context) {
         } catch (e: Exception) {
             Log.w(TAG, "Fast bundle download failed: ${e.message}", e)
             tempZip?.delete()
-            stagingDir.deleteRecursively()
+            deleteTree(stagingDir)
             stagingDir.mkdirs()
             return@withContext false
         }
     }
 
     private suspend fun performDownload(listener: ProgressListener) = withContext(Dispatchers.IO) {
-        if (stagingDir.exists()) {
-            stagingDir.deleteRecursively()
-        }
+        if (stagingDir.exists()) deleteTree(stagingDir)
         stagingDir.mkdirs()
 
         // 1. ISOLATE FROM GALLERY: Create .nomedia at every directory level
@@ -479,28 +440,8 @@ class ResourceDownloader(private val context: Context) {
             listener.onProgress("World Tables", 0.90, 0, "Mengekstrak tabel registries, facts, & worldgen...")
             extractBundledOrFallbackFacts(stagingDir)
 
-            // 7. Final Verification & Atomic Swap to BOTH targets
-            listener.onProgress("Verifikasi", 0.96, 0, "Menghitung SHA-256 dan melakukan atomic swap...")
-            shieldFromGallery(stagingDir)
-
-            val sha256 = computeDirHash(stagingDir)
-            File(stagingDir, ".prepared_sha256").writeText(sha256)
-            File(stagingDir, "android-downloads-v2.json").writeText("{\"schema\":2}")
-            File(stagingDir, "audio-complete.json").writeText("{}")
-
-            // Target 1: filesDir/resources/26.3
-            if (targetDir.exists()) targetDir.deleteRecursively()
-            targetDir.mkdirs()
-            copyDirectory(stagingDir, targetDir)
-            shieldFromGallery(targetDir)
-
-            // Target 2: filesDir/.local/horizon-client/26.3
-            if (localTargetDir.exists()) localTargetDir.deleteRecursively()
-            localTargetDir.mkdirs()
-            copyDirectory(stagingDir, localTargetDir)
-            shieldFromGallery(localTargetDir)
-
-            stagingDir.deleteRecursively()
+            listener.onProgress("Verifikasi", 0.96, 0, "Menyimpan konfigurasi instalasi...")
+            val sha256 = finalizeStaging(hashNames(listRelative(stagingDir)))
 
             listener.onProgress("Selesai", 1.0, 0, "Resources 26.3 berhasil disiapkan dan siap dimainkan!")
             listener.onComplete(targetDir.absolutePath, sha256)
@@ -514,64 +455,28 @@ class ResourceDownloader(private val context: Context) {
         scope.launch(Dispatchers.IO) {
             acquireWakeLock()
             try {
-                listener.onProgress("Import SAF", 0.1, 0, "Mengekstrak file .zip yang dipilih...")
-                if (stagingDir.exists()) stagingDir.deleteRecursively()
+                listener.onProgress("Import SAF", 0.02, 0, "Membuka file .zip...")
+                if (stagingDir.exists()) deleteTree(stagingDir)
                 stagingDir.mkdirs()
                 shieldFromGallery(stagingDir)
 
-                context.contentResolver.openInputStream(zipUri)?.use { rawIn ->
-                    ZipInputStream(BufferedInputStream(rawIn)).use { zipIn ->
-                        var entry: ZipEntry? = zipIn.nextEntry
-                        val buffer = ByteArray(65536)
-                        var count = 0
-
-                        while (entry != null) {
-                            val file = File(stagingDir, entry.name)
-                            if (!file.canonicalPath.startsWith(stagingDir.canonicalPath)) {
-                                throw SecurityException("Zip-Slip detected: ${entry.name}")
-                            }
-                            if (entry.isDirectory) {
-                                file.mkdirs()
-                            } else {
-                                file.parentFile?.mkdirs()
-                                FileOutputStream(file).use { out ->
-                                    var read: Int
-                                    while (zipIn.read(buffer).also { read = it } != -1) {
-                                        out.write(buffer, 0, read)
-                                    }
-                                }
-                            }
-                            count++
-                            if (count % 100 == 0) {
-                                listener.onProgress("Import SAF", 0.5, 0, "Mengekstrak $count file...")
-                            }
-                            zipIn.closeEntry()
-                            entry = zipIn.nextEntry
-                        }
+                val size = querySize(zipUri)
+                val started = System.currentTimeMillis()
+                val names = context.contentResolver.openInputStream(zipUri)?.use { raw ->
+                    extractZip(raw, stagingDir, size) { done, total, files ->
+                        val secs = ((System.currentTimeMillis() - started) / 1000.0).coerceAtLeast(0.5)
+                        val detail = if (size > 0) "Mengekstrak $files file, ${done shr 20} / ${total shr 20} MB"
+                            else "Mengekstrak $files file, ${done shr 20} MB"
+                        listener.onProgress("Import SAF", 0.02 + 0.88 * done / total, (done / secs).toLong(), detail)
                     }
                 } ?: throw IOException("Gagal membuka file dari URI")
+                if (names.isEmpty()) throw IOException("File .zip kosong atau bukan zip")
 
-                listener.onProgress("Verifikasi", 0.90, 0, "Mengekstrak tabel fakta internal...")
+                listener.onProgress("Verifikasi", 0.92, 0, "Mengekstrak tabel fakta internal...")
                 extractBundledOrFallbackFacts(stagingDir)
-                shieldAllAssets(stagingDir)
 
-                listener.onProgress("Verifikasi", 0.95, 0, "Memvalidasi resource...")
-                val sha256 = computeDirHash(stagingDir)
-                File(stagingDir, ".prepared_sha256").writeText(sha256)
-                File(stagingDir, "android-downloads-v2.json").writeText("{\"schema\":2}")
-                File(stagingDir, "audio-complete.json").writeText("{}")
-
-                if (targetDir.exists()) targetDir.deleteRecursively()
-                targetDir.mkdirs()
-                copyDirectory(stagingDir, targetDir)
-                shieldAllAssets(targetDir)
-
-                if (localTargetDir.exists()) localTargetDir.deleteRecursively()
-                localTargetDir.mkdirs()
-                copyDirectory(stagingDir, localTargetDir)
-                shieldAllAssets(localTargetDir)
-
-                stagingDir.deleteRecursively()
+                listener.onProgress("Verifikasi", 0.97, 0, "Memasang resource...")
+                val sha256 = finalizeStaging(hashNames(names))
 
                 listener.onProgress("Selesai", 1.0, 0, "Import berhasil!")
                 listener.onComplete(targetDir.absolutePath, sha256)
@@ -608,8 +513,8 @@ class ResourceDownloader(private val context: Context) {
 
     private fun extractJarAssetsAndData(jarFile: File, targetDir: File) {
         shieldFromGallery(targetDir)
-        ZipInputStream(BufferedInputStream(FileInputStream(jarFile))).use { zip ->
-            val buffer = ByteArray(65536)
+        ZipInputStream(BufferedInputStream(FileInputStream(jarFile), BUF)).use { zip ->
+            val buffer = ByteArray(BUF)
             var entry: ZipEntry? = zip.nextEntry
             while (entry != null) {
                 val name = entry.name
@@ -617,7 +522,7 @@ class ResourceDownloader(private val context: Context) {
                     val outFile = File(targetDir, name)
                     if (outFile.canonicalPath.startsWith(targetDir.canonicalPath)) {
                         outFile.parentFile?.mkdirs()
-                        FileOutputStream(outFile).use { out ->
+                        BufferedOutputStream(FileOutputStream(outFile), BUF).use { out ->
                             var len: Int
                             while (zip.read(buffer).also { len = it } != -1) {
                                 out.write(buffer, 0, len)
@@ -637,8 +542,8 @@ class ResourceDownloader(private val context: Context) {
         var found = false
         try {
             context.assets.open("horizon-facts-$VERSION.zip").use { raw ->
-                ZipInputStream(BufferedInputStream(raw)).use { zip ->
-                    val buffer = ByteArray(65536)
+                ZipInputStream(BufferedInputStream(raw, BUF)).use { zip ->
+                    val buffer = ByteArray(BUF)
                     var entry: ZipEntry? = zip.nextEntry
                     while (entry != null) {
                         if (!entry.isDirectory) {
@@ -739,24 +644,120 @@ class ResourceDownloader(private val context: Context) {
         }
     }
 
-    private fun computeDirHash(dir: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        dir.walkTopDown().filter { it.isFile && it.name != ".prepared_sha256" && it.name != ".nomedia" }.sortedBy { it.name }.forEach { f ->
-            digest.update(f.name.toByteArray())
-        }
-        val hex = digest.digest().joinToString("") { "%02x".format(it) }
-        return if (hex.length == 64) hex else hex.padEnd(64, '0')
-    }
-
-    private fun copyDirectory(source: File, target: File) {
-        if (!target.exists()) target.mkdirs()
-        source.listFiles()?.forEach { file ->
-            val dest = File(target, file.name)
-            if (file.isDirectory) {
-                copyDirectory(file, dest)
-            } else {
-                file.copyTo(dest, overwrite = true)
+    /** Unpacks [input] into [dest] and returns the entry names in archive order. */
+    private fun extractZip(input: InputStream, dest: File, totalBytes: Long, onProgress: (Long, Long, Int) -> Unit): List<String> {
+        val root = dest.canonicalPath + File.separator
+        val counted = CountingInputStream(BufferedInputStream(input, BUF))
+        val names = ArrayList<String>(8192)
+        val made = HashSet<String>()
+        val buffer = ByteArray(BUF)
+        var last = 0L
+        ZipInputStream(counted).use { zip ->
+            var entry: ZipEntry? = zip.nextEntry
+            while (entry != null) {
+                val file = File(dest, entry.name)
+                val path = file.canonicalPath
+                if (!path.startsWith(root)) throw SecurityException("Zip-Slip detected: ${entry.name}")
+                if (entry.isDirectory) {
+                    if (made.add(path)) file.mkdirs()
+                } else {
+                    val parent = file.parentFile
+                    if (parent != null && made.add(parent.path)) parent.mkdirs()
+                    FileOutputStream(file).use { out ->
+                        var n: Int
+                        while (zip.read(buffer).also { n = it } != -1) out.write(buffer, 0, n)
+                    }
+                    names.add(entry.name)
+                }
+                val now = System.currentTimeMillis()
+                if (now - last >= 200) {
+                    last = now
+                    val total = if (totalBytes > 0) totalBytes else counted.count * 2 + 1
+                    onProgress(counted.count.coerceAtMost(total), total, names.size)
+                }
+                entry = zip.nextEntry
             }
         }
+        return names
+    }
+
+    private class CountingInputStream(inner: InputStream) : FilterInputStream(inner) {
+        @Volatile var count = 0L
+        override fun read(): Int = super.read().also { if (it >= 0) count++ }
+        override fun read(b: ByteArray, off: Int, len: Int): Int = super.read(b, off, len).also { if (it > 0) count += it }
+        override fun skip(n: Long): Long = super.skip(n).also { count += it }
+    }
+
+    private fun querySize(uri: Uri): Long = try {
+        context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.SIZE), null, null, null)?.use { c ->
+            if (c.moveToFirst() && !c.isNull(0)) c.getLong(0) else -1L
+        } ?: -1L
+    } catch (_: Exception) { -1L }
+
+    private fun listRelative(dir: File): List<String> {
+        val base = dir.path.length + 1
+        return dir.walkTopDown().filter { it.isFile }.map { it.path.substring(base) }.toList()
+    }
+
+    /** Identity of an install: the sorted file list, the same list on every phone for the same zip. */
+    private fun hashNames(names: List<String>): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        for (n in names.sorted()) {
+            if (n.endsWith(".prepared_sha256") || n.endsWith(".nomedia")) continue
+            digest.update(n.toByteArray())
+            digest.update(0)
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * Moves staging into place with a rename instead of copying every file, and points the
+     * engine's fallback path at it with a symlink so the files exist once on disk.
+     */
+    private fun finalizeStaging(sha256: String): String {
+        shieldAllAssets(stagingDir)
+        File(stagingDir, ".prepared_sha256").writeText(sha256)
+        File(stagingDir, "android-downloads-v2.json").writeText("{\"schema\":2}")
+        File(stagingDir, "audio-complete.json").writeText("{}")
+
+        val old = File(context.filesDir, "resources/old_$VERSION")
+        if (old.exists()) deleteTree(old)
+        if (targetDir.exists() && !targetDir.renameTo(old)) deleteTree(targetDir)
+        targetDir.parentFile?.mkdirs()
+        if (!stagingDir.renameTo(targetDir)) {
+            targetDir.mkdirs()
+            stagingDir.copyRecursively(targetDir, overwrite = true)
+            deleteTree(stagingDir)
+        }
+        linkLocal()
+        if (old.exists()) scope.launch { deleteTree(old) }
+        return sha256
+    }
+
+    private fun linkLocal() {
+        val link = localTargetDir.toPath()
+        try {
+            if (Files.isSymbolicLink(link)) Files.delete(link) else if (localTargetDir.exists()) deleteTree(localTargetDir)
+            localTargetDir.parentFile?.mkdirs()
+            Files.createSymbolicLink(link, targetDir.toPath())
+        } catch (e: Exception) {
+            Log.w(TAG, "Symlink gagal, menyalin: ${e.message}")
+            localTargetDir.mkdirs()
+            targetDir.copyRecursively(localTargetDir, overwrite = true)
+        }
+    }
+
+    /** Older installs kept a second full copy under .local; replace it with a link once. */
+    fun dropDuplicateCopy() {
+        if (!isPrepared() || Files.isSymbolicLink(localTargetDir.toPath())) return
+        scope.launch { try { linkLocal() } catch (_: Exception) {} }
+    }
+
+    /** Deletes a tree without following symlinks into their targets. */
+    private fun deleteTree(f: File) {
+        val p = f.toPath()
+        if (Files.isSymbolicLink(p)) { Files.deleteIfExists(p); return }
+        if (f.isDirectory) f.listFiles()?.forEach { deleteTree(it) }
+        f.delete()
     }
 }

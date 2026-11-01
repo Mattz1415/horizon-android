@@ -25,7 +25,7 @@ const ANDROID_LOG_FATAL: i32 = 7;
 
 /// Initializes the Android execution environment:
 /// 1. Working directory redirected to `filesDir/game_data` so all relative I/O (`./saves`, `./config`) remains in app-private storage.
-/// 2. Bionic libc stack expanded: Global Rayon pool initialized with 8 MiB per thread and 4 workers (matching Snapdragon 695 core topology).
+/// 2. Bionic libc stack expanded: Global Rayon pool initialized with 8 MiB per thread, sized to the core count unless the launcher sets it.
 /// 3. Panic hook capturing complete backtraces to Android Logcat (`HorizonRustPanic`) and writing to `crash.log`.
 pub fn initialize_engine_environment(game_data_dir: &Path, resources_dir: &Path, worker_threads: usize) {
     INIT_ONCE.call_once(|| {
@@ -93,10 +93,16 @@ pub fn initialize_engine_environment(game_data_dir: &Path, resources_dir: &Path,
             }
         }));
 
-        // 3. Initialize Global Rayon ThreadPool with 8 MiB Stack per worker
-        // Snapdragon 695 5G has 2x Cortex-A78 @ 2.2GHz + 6x Cortex-A55 @ 1.8GHz.
-        // Limiting to 4 worker threads allows 2 big + 2 little cores, keeping thermal dissipation optimal.
-        let threads = if worker_threads > 0 { worker_threads } else { 4 };
+        // 3. Global Rayon pool, 8 MiB stack per worker. 0 sizes it to the phone: every core
+        // but two, which stay free for the render and server threads.
+        let threads = if worker_threads > 0 {
+            worker_threads
+        } else {
+            thread::available_parallelism()
+                .map_or(4, |n| n.get())
+                .saturating_sub(2)
+                .max(2)
+        };
         let stack_size = 8 * 1024 * 1024; // 8 MiB
 
         let rayon_result = rayon::ThreadPoolBuilder::new()

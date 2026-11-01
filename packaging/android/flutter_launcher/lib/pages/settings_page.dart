@@ -87,6 +87,23 @@ class SettingsPage extends StatelessWidget {
                 format: (v) => v >= 260 ? 'Tanpa batas' : '${v.round()}',
                 onChanged: (v) => app.updateOptions((o) => o.maxFps = v.round()),
               ),
+              Row(children: [
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text('VSync', style: Hz.body.copyWith(color: Hz.ink)),
+                    const SizedBox(height: 2),
+                    Text('Matikan supaya FPS bisa melewati refresh rate layar. Bisa ada sobekan gambar.', style: Hz.small),
+                  ]),
+                ),
+                Semantics(
+                  label: o.vsync ? 'Matikan VSync' : 'Nyalakan VSync',
+                  child: SizedBox(
+                    height: 48,
+                    child: HzSwitch(value: o.vsync, onChanged: (v) => app.updateOptions((o) => o.vsync = v)),
+                  ),
+                ),
+              ]),
+              const SizedBox(height: 16),
               SliderRow(
                 label: 'Skala GUI',
                 value: o.guiScale.toDouble(),
@@ -107,10 +124,11 @@ class SettingsPage extends StatelessWidget {
               SliderRow(
                 label: 'Thread pekerja',
                 hint: 'Thread untuk membangun chunk. Perangkat ini punya $cores inti.',
-                value: app.workerThreads.toDouble().clamp(1, cores.toDouble()),
-                min: 1,
+                value: app.workerThreads.toDouble().clamp(0, cores.toDouble().clamp(2, 16)),
+                min: 0,
                 max: cores.toDouble().clamp(2, 16),
-                divisions: (cores.clamp(2, 16) - 1),
+                divisions: cores.clamp(2, 16),
+                format: (v) => v.round() == 0 ? 'Otomatis' : '${v.round()}',
                 onChanged: (v) => app.setThreads(v.round()),
               ),
             ]);

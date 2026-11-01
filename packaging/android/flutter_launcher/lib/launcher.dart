@@ -44,6 +44,7 @@ class GameOptions {
     this.renderDistance = 12,
     this.simulationDistance = 12,
     this.maxFps = 120,
+    this.vsync = true,
     this.guiScale = 0,
     this.fov = 70,
     this.lodDistance = 0,
@@ -54,6 +55,7 @@ class GameOptions {
         renderDistance: (m['renderDistance'] as num?)?.toInt() ?? 12,
         simulationDistance: (m['simulationDistance'] as num?)?.toInt() ?? 12,
         maxFps: (m['maxFps'] as num?)?.toInt() ?? 120,
+        vsync: m['vsync'] as bool? ?? true,
         guiScale: (m['guiScale'] as num?)?.toInt() ?? 0,
         fov: (m['fov'] as num?)?.toInt() ?? 70,
         lodDistance: (m['lodDistance'] as num?)?.toInt() ?? 0,
@@ -63,6 +65,7 @@ class GameOptions {
   int renderDistance;
   int simulationDistance;
   int maxFps;
+  bool vsync;
   int guiScale;
   int fov;
   int lodDistance;
@@ -72,6 +75,7 @@ class GameOptions {
         'renderDistance': renderDistance,
         'simulationDistance': simulationDistance,
         'maxFps': maxFps,
+        'vsync': vsync,
         'guiScale': guiScale,
         'fov': fov,
         'lodDistance': lodDistance,
@@ -172,7 +176,8 @@ class Launcher extends ChangeNotifier {
   List<String> accounts = [];
   String account = '';
 
-  int workerThreads = 4;
+  /// 0 sizes the pool to the phone's cores.
+  int workerThreads = 0;
   String backend = 'vulkan';
   int touchScheme = 0;
   int lastPlayed = 0;
@@ -285,7 +290,7 @@ class Launcher extends ChangeNotifier {
     try {
       final raw = await _channel.invokeMethod<String>('getLauncherSettings') ?? '{}';
       final m = jsonDecode(raw) as Map<String, dynamic>;
-      workerThreads = (m['workerThreads'] as num?)?.toInt() ?? 4;
+      workerThreads = m['threadsAuto'] == false ? (m['workerThreads'] as num?)?.toInt() ?? 0 : 0;
       backend = m['backend'] == 'opengl' ? 'opengl' : 'vulkan';
       touchScheme = ((m['touchScheme'] as num?)?.toInt() ?? 0).clamp(0, 3);
       lastPlayed = (m['lastPlayed'] as num?)?.toInt() ?? 0;
@@ -310,6 +315,7 @@ class Launcher extends ChangeNotifier {
       _call('saveLauncherSettings', {
         'json': jsonEncode({
           'workerThreads': workerThreads,
+          'threadsAuto': workerThreads == 0,
           'backend': backend,
           'touchScheme': touchScheme,
           'lastPlayed': lastPlayed,

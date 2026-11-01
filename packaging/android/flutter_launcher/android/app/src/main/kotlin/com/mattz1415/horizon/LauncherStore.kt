@@ -74,6 +74,7 @@ class LauncherStore(private val gameData: File) {
             "renderDistance" to (o["renderDistance"]?.toIntOrNull() ?: 12),
             "simulationDistance" to (o["simulationDistance"]?.toIntOrNull() ?: 12),
             "maxFps" to (o["maxFps"]?.toIntOrNull() ?: 120),
+            "vsync" to (o["enableVsync"]?.trim() != "false"),
             "guiScale" to (o["guiScale"]?.toIntOrNull() ?: 0),
             "fov" to fov,
             "lodDistance" to (g["lodDistance"]?.trim()?.toIntOrNull() ?: 0),
@@ -90,6 +91,7 @@ class LauncherStore(private val gameData: File) {
             val c = v.coerceIn(range)
             o[key] = if (key == "fov") ((c - 70) / 40.0).toString() else c.toString()
         }
+        (values["vsync"] as? Boolean)?.let { o["enableVsync"] = it.toString() }
         writePairs(optionsFile, o)
 
         val g = readPairs(graphicsFile)

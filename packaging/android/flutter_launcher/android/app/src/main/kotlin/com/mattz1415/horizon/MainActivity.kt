@@ -110,6 +110,7 @@ class MainActivity : FlutterActivity() {
                     when (call.method) {
                         "checkResources" -> {
                             val prepared = downloader.isPrepared()
+                            if (prepared) downloader.dropDuplicateCopy()
                             val shaFile = File(downloader.targetDir, ".prepared_sha256")
                             val sha = if (shaFile.exists()) shaFile.readText().trim() else ""
                             result.success(
@@ -332,7 +333,7 @@ class MainActivity : FlutterActivity() {
                             }
 
                             val ramMb = call.argument<Int>("ramMb") ?: 2048
-                            val threads = call.argument<Int>("workerThreads") ?: 4
+                            val threads = call.argument<Int>("workerThreads") ?: 0
                             val backend = call.argument<String>("backend") ?: "vulkan"
                             val touchScheme = call.argument<Int>("touchScheme") ?: 0
                             val username = call.argument<String>("username") ?: "HorizonPlayer"

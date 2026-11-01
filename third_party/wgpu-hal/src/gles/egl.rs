@@ -1092,6 +1092,10 @@ pub struct Swapchain {
     format_desc: super::TextureFormatDesc,
     #[allow(unused)]
     sample_type: wgt::TextureSampleType,
+    /// eglSwapInterval: 0 for Immediate, 1 (the EGL default) otherwise.
+    swap_interval: i32,
+    /// eglSwapInterval acts on the current surface, so it is set at the first present.
+    interval_set: core::sync::atomic::AtomicBool,
 }
 
 #[derive(Debug)]
@@ -1169,6 +1173,11 @@ impl Surface {
 
         unsafe { gl.bind_framebuffer(glow::READ_FRAMEBUFFER, None) };
 
+        if !sc.interval_set.swap(true, core::sync::atomic::Ordering::Relaxed) {
+            if let Err(e) = self.egl.instance.swap_interval(self.egl.display, sc.swap_interval) {
+                log::warn!("eglSwapInterval({}) failed: {e}", sc.swap_interval);
+            }
+        }
         self.egl
             .instance
             .swap_buffers(self.egl.display, sc.surface)
@@ -1416,6 +1425,8 @@ impl crate::Surface for Surface {
             format: config.format,
             format_desc,
             sample_type: wgt::TextureSampleType::Float { filterable: false },
+            swap_interval: if config.present_mode == wgt::PresentMode::Immediate { 0 } else { 1 },
+            interval_set: core::sync::atomic::AtomicBool::new(false),
         });
 
         Ok(())

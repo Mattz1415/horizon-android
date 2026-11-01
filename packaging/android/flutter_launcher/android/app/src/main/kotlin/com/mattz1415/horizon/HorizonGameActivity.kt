@@ -105,7 +105,7 @@ class HorizonGameActivity : NativeActivity() {
         val resourcesDir = intent.getStringExtra("EXTRA_RESOURCES_DIR")
             ?: File(filesDir, "resources/26.3").absolutePath
         val ramMb = intent.getIntExtra("EXTRA_RAM_MB", 2048)
-        val threads = intent.getIntExtra("EXTRA_WORKER_THREADS", 4)
+        val threads = intent.getIntExtra("EXTRA_WORKER_THREADS", 0)
         val backend = intent.getStringExtra("EXTRA_BACKEND") ?: "vulkan"
         val touchScheme = intent.getIntExtra("EXTRA_TOUCH_SCHEME", 0)
         val username = intent.getStringExtra("EXTRA_USERNAME") ?: "HorizonPlayer"
@@ -123,6 +123,7 @@ class HorizonGameActivity : NativeActivity() {
                     WindowManager.LayoutParams.SOFT_INPUT_STATE_UNSPECIFIED
         )
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        requestHighestRefreshRate()
 
         val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager
         wakeLock = pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "horizon:game_active")?.apply {
@@ -156,6 +157,43 @@ class HorizonGameActivity : NativeActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) hideSystemUi()
+    }
+
+    /**
+     * Android gives an app the panel's default mode, which is 60 Hz on most phones even when the
+     * panel can do 90, 120 or 144. Fifo presentation then caps the engine at that rate, so the
+     * frame rate is asked for here instead: the highest mode of the current resolution, plus a
+     * frame-rate request on the surface for the firmware that only honours that path.
+     */
+    private fun requestHighestRefreshRate() {
+        try {
+            val display = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) display else windowManager.defaultDisplay
+            val current = display?.mode ?: return
+            val best = display.supportedModes
+                ?.filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight }
+                ?.maxByOrNull { it.refreshRate }
+                ?: return
+            if (best.refreshRate > current.refreshRate + 0.1f) {
+                window.attributes = window.attributes.apply { preferredDisplayModeId = best.modeId }
+                Log.i(TAG, "Refresh rate: asking for ${best.refreshRate} Hz (was ${current.refreshRate})")
+            }
+            bestRefreshRate = best.refreshRate
+        } catch (t: Throwable) {
+            Log.w(TAG, "Refresh rate request: ${t.message}")
+        }
+    }
+
+    private var bestRefreshRate = 0f
+
+    override fun surfaceCreated(holder: android.view.SurfaceHolder) {
+        super.surfaceCreated(holder)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && bestRefreshRate > 0f) {
+            try {
+                holder.surface.setFrameRate(bestRefreshRate, android.view.Surface.FRAME_RATE_COMPATIBILITY_DEFAULT)
+            } catch (t: Throwable) {
+                Log.w(TAG, "Surface.setFrameRate: ${t.message}")
+            }
+        }
     }
 
     private fun acquireWakeLock() {
