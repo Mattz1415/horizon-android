@@ -38,6 +38,10 @@ class MainActivity : FlutterActivity() {
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val REQUEST_SAF_ZIP = 4102
+    private val REQUEST_SAF_ADDON = 4103
+    private var pendingImport: MethodChannel.Result? = null
+    private val store by lazy { LauncherStore(downloader.gameDataDir) }
+    private val addons by lazy { AddonStore(downloader.gameDataDir, store) }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -45,6 +49,24 @@ class MainActivity : FlutterActivity() {
             val uri = data?.data
             if (uri != null) {
                 downloader.importPreparedZip(uri, createDownloaderListener())
+            }
+        }
+        if (requestCode == REQUEST_SAF_ADDON) {
+            val pending = pendingImport
+            pendingImport = null
+            val uri = data?.data
+            if (pending == null) return
+            if (resultCode != Activity.RESULT_OK || uri == null) {
+                pending.success(null)
+                return
+            }
+            scope.launch {
+                try {
+                    val imported = addons.import(contentResolver, uri)
+                    withContext(Dispatchers.Main) { pending.success(imported) }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) { pending.error("IMPORT_FAILED", e.message, null) }
+                }
             }
         }
     }
@@ -56,6 +78,7 @@ class MainActivity : FlutterActivity() {
         shieldFromGallery(File(filesDir, "resources"))
         shieldFromGallery(File(filesDir, "resources/26.3"))
         shieldFromGallery(File(filesDir, "game_data"))
+        AddonStore.migrateOldFolders(File(filesDir, "game_data"))
     }
 
     private fun shieldFromGallery(dir: File) {
@@ -134,21 +157,7 @@ class MainActivity : FlutterActivity() {
                         }
 
                         "getMods" -> {
-                            val modsDir = File(downloader.gameDataDir, "mods").apply { mkdirs() }
-                            val list = mutableListOf<Map<String, Any>>()
-                            modsDir.listFiles()?.filter { it.extension == "hmod" || it.name.endsWith(".hmod.disabled") }?.forEach { f ->
-                                val enabled = !f.name.endsWith(".disabled")
-                                list.add(
-                                    mapOf(
-                                        "name" to f.name.removeSuffix(".disabled"),
-                                        "fileName" to f.name,
-                                        "size" to f.length(),
-                                        "enabled" to enabled,
-                                        "type" to "mod"
-                                    )
-                                )
-                            }
-                            result.success(list)
+                            result.success(addons.list())
                         }
 
                         "installModFromUrl" -> {
@@ -160,13 +169,8 @@ class MainActivity : FlutterActivity() {
                             }
                             scope.launch {
                                 try {
-                                    val targetSubdir = when (type) {
-                                        "shader" -> "shaders"
-                                        "pack" -> "resourcepacks"
-                                        else -> "mods"
-                                    }
-                                    installAddon(url, targetSubdir)
-                                    withContext(Dispatchers.Main) { result.success(true) }
+                                    val file = installAddon(url, LauncherStore.folderFor(type))
+                                    withContext(Dispatchers.Main) { result.success(file.name) }
                                 } catch (e: Exception) {
                                     withContext(Dispatchers.Main) {
                                         result.error("INSTALL_FAILED", e.message, null)
@@ -182,34 +186,80 @@ class MainActivity : FlutterActivity() {
                                 result.error("INVALID_NAME", "Filename kosong", null)
                                 return@setMethodCallHandler
                             }
-                            val targetSubdir = when (type) {
-                                "shader" -> "shaders"
-                                "pack" -> "resourcepacks"
-                                else -> "mods"
+                            if (addons.toggle(type, fileName)) result.success(true)
+                            else result.error("NOT_FOUND", "File tidak ditemukan", null)
+                        }
+
+                        "deleteAddon" -> {
+                            val fileName = call.argument<String>("fileName") ?: ""
+                            val type = call.argument<String>("type") ?: "mod"
+                            if (addons.delete(type, fileName)) result.success(true)
+                            else result.error("NOT_FOUND", "File tidak ditemukan", null)
+                        }
+
+                        "importAddon" -> {
+                            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                                addCategory(Intent.CATEGORY_OPENABLE)
+                                type = "*/*"
                             }
-                            val dir = File(downloader.gameDataDir, targetSubdir)
-                            val file = File(dir, fileName)
-                            if (file.exists()) {
-                                if (fileName.endsWith(".disabled")) {
-                                    file.renameTo(File(dir, fileName.removeSuffix(".disabled")))
-                                } else {
-                                    file.renameTo(File(dir, "$fileName.disabled"))
-                                }
-                                result.success(true)
-                            } else {
-                                result.error("NOT_FOUND", "File tidak ditemukan", null)
+                            pendingImport?.error("CANCELLED", "Diganti impor baru", null)
+                            pendingImport = result
+                            startActivityForResult(intent, REQUEST_SAF_ADDON)
+                        }
+
+                        "getLauncherSettings" -> result.success(store.readLauncher())
+
+                        "saveLauncherSettings" -> {
+                            store.writeLauncher(call.argument<String>("json") ?: "{}")
+                            result.success(true)
+                        }
+
+                        "getGameOptions" -> result.success(store.readGameOptions())
+
+                        "saveGameOptions" -> {
+                            @Suppress("UNCHECKED_CAST")
+                            val values = call.arguments as? Map<String, Any?> ?: emptyMap()
+                            store.writeGameOptions(values)
+                            result.success(true)
+                        }
+
+                        "getWorlds" -> scope.launch {
+                            val worlds = store.worlds()
+                            withContext(Dispatchers.Main) { result.success(worlds) }
+                        }
+
+                        "deleteWorld" -> {
+                            val name = call.argument<String>("name") ?: ""
+                            if (store.deleteWorld(name)) result.success(true)
+                            else result.error("NOT_FOUND", "Dunia tidak ditemukan", null)
+                        }
+
+                        "getDeviceInfo" -> scope.launch {
+                            val info = store.deviceInfo(this@MainActivity, downloader.targetDir)
+                            withContext(Dispatchers.Main) { result.success(info) }
+                        }
+
+                        "shareText" -> {
+                            val text = call.argument<String>("text") ?: ""
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_TEXT, text)
                             }
+                            startActivity(Intent.createChooser(send, "Bagikan log"))
+                            result.success(true)
                         }
 
                         "getLogs" -> {
                             val crashLog = File(downloader.gameDataDir, "crash.log")
                             val latestLog = File(downloader.gameDataDir, "logs/latest.log")
-                            val content = when {
-                                crashLog.exists() -> "=== CRASH LOG ===\n" + crashLog.readText().takeLast(3500)
-                                latestLog.exists() -> "=== LATEST LOG ===\n" + latestLog.readText().takeLast(3500)
-                                else -> "Belum ada catatan crash. Engine berjalan normal."
-                            }
-                            result.success(content)
+                            result.success(
+                                mapOf(
+                                    "crash" to (if (crashLog.exists()) crashLog.readText().takeLast(20000) else ""),
+                                    "crashModified" to (if (crashLog.exists()) crashLog.lastModified() else 0L),
+                                    "latest" to (if (latestLog.exists()) latestLog.readText().takeLast(20000) else ""),
+                                    "latestModified" to (if (latestLog.exists()) latestLog.lastModified() else 0L)
+                                )
+                            )
                         }
 
                         "clearLogs" -> {
@@ -299,7 +349,7 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    private fun installAddon(urlStr: String, targetSubdir: String = "mods") {
+    private fun installAddon(urlStr: String, targetSubdir: String): File {
         val resolvedUrl = when {
             urlStr.contains("playhorizon.dev/shaders/golden-hour") -> "https://github.com/Mattz1415/horizon-android/releases/latest/download/golden-hour.hshader"
             urlStr.contains("playhorizon.dev/shaders/vanilla-enhanced") -> "https://github.com/Mattz1415/horizon-android/releases/latest/download/vanilla-enhanced.hshader"
@@ -320,7 +370,7 @@ class MainActivity : FlutterActivity() {
             val body = response.body ?: throw java.io.IOException("Empty body")
 
             val ext = when (targetSubdir) {
-                "shaders" -> ".hshader"
+                "shaderpacks" -> ".hshader"
                 "resourcepacks" -> ".zip"
                 else -> ".hmod"
             }
@@ -330,9 +380,17 @@ class MainActivity : FlutterActivity() {
             val dir = File(downloader.gameDataDir, targetSubdir).apply { mkdirs() }
             val destFile = File(dir, filename)
 
-            FileOutputStream(destFile).use { fos ->
+            val partial = File(dir, "$filename.part")
+            FileOutputStream(partial).use { fos ->
                 body.byteStream().use { it.copyTo(fos) }
             }
+            if (partial.length() == 0L) {
+                partial.delete()
+                throw java.io.IOException("File kosong dari server")
+            }
+            destFile.delete()
+            if (!partial.renameTo(destFile)) throw java.io.IOException("Gagal menyimpan $filename")
+            return destFile
         }
     }
 

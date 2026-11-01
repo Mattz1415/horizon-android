@@ -1,7 +1,7 @@
 name: horizon_launcher
-description: "Horizon Android - High-Performance 26.3 Rust Engine Launcher"
+description: "Horizon Android - launcher for the Minecraft 26.3 Rust engine"
 publish_to: "none"
-version: 0.8.0+30
+version: 0.9.0+31
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -18,3 +18,18 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  fonts:
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-Regular.ttf
+        - asset: assets/fonts/Geist-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Geist-SemiBold.ttf
+          weight: 600
+    - family: GeistMono
+      fonts:
+        - asset: assets/fonts/GeistMono-Regular.ttf
+    - family: PixelifySans
+      fonts:
+        - asset: assets/fonts/PixelifySans-SemiBold.ttf
+          weight: 600
