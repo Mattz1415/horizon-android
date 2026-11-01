@@ -221,6 +221,7 @@ class Launcher extends ChangeNotifier {
       loadWorlds(),
       loadDevice(),
       loadScreenshots(),
+      checkNotifications(),
     ]);
   }
 
@@ -247,6 +248,9 @@ class Launcher extends ChangeNotifier {
         speed = 0;
         sha256 = p['sha256'] as String? ?? '';
         detail = '';
+      case 'paused':
+        phase = Phase.paused;
+        speed = 0;
       case 'error':
         phase = Phase.failed;
         error = p['error'] as String? ?? 'Tidak ada keterangan dari perangkat';
@@ -260,7 +264,25 @@ class Launcher extends ChangeNotifier {
       final r = await _channel.invokeMethod<Map>('checkResources');
       final ok = r?['isPrepared'] == true;
       sha256 = r?['sha256'] as String? ?? '';
-      if (phase != Phase.downloading) phase = ok ? Phase.ready : Phase.missing;
+      final last = r?['last'];
+      if (r?['busy'] == true && last is Map) {
+        // The install kept running while the launcher was gone; pick it up where it is.
+        _onProgress(last);
+        return;
+      }
+      // Busy false while we still show downloading means it ended while nobody listened.
+      final stale = phase == Phase.downloading && r?['busy'] == false;
+      if (stale && !ok && last is Map && last['status'] != 'downloading') {
+        // It stopped while the launcher was away; show how it ended.
+        _onProgress(last);
+        return;
+      }
+      final settled = phase == Phase.failed || phase == Phase.paused;
+      if (ok) {
+        phase = Phase.ready;
+      } else if (stale || !(settled || phase == Phase.downloading)) {
+        phase = Phase.missing;
+      }
     } on PlatformException catch (e) {
       phase = Phase.failed;
       error = e.message;
@@ -270,10 +292,32 @@ class Launcher extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Null until the platform answers. False means Android 13+ blocked the
+  /// install notification, so progress is only visible inside the launcher.
+  bool? notificationsAllowed;
+
+  Future<void> checkNotifications() async {
+    try {
+      notificationsAllowed = await _channel.invokeMethod<bool>('notificationsAllowed');
+    } catch (_) {
+      notificationsAllowed = null;
+    }
+    notifyListeners();
+  }
+
+  Future<void> requestNotifications() async {
+    try {
+      await _channel.invokeMethod<bool>('requestNotifications');
+    } catch (_) {}
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    await checkNotifications();
+  }
+
   Future<void> startDownload() async {
     phase = Phase.downloading;
     error = null;
     notifyListeners();
+    if (notificationsAllowed == false) await requestNotifications();
     await _call('startDownload');
   }
 

@@ -158,19 +158,24 @@ class ResourceDownloader(private val context: Context) {
         return hasAssets && hasTables
     }
 
+    @Volatile
+    private var generation = 0
+
     fun startDownload(listener: ProgressListener) {
         activeJob?.cancel()
+        val mine = ++generation
         activeJob = scope.launch(Dispatchers.IO) {
             acquireWakeLock()
             try {
                 performDownload(listener)
             } catch (ce: CancellationException) {
-                listener.onError("Download dijeda oleh pengguna.")
+                // A restart cancels the old job; only the newest one may report a pause.
+                if (mine == generation) listener.onError("Download dijeda oleh pengguna.")
             } catch (e: Exception) {
                 Log.e(TAG, "Download error: ${e.message}", e)
                 listener.onError("Gagal: ${e.message ?: "Koneksi terputus"}")
             } finally {
-                releaseWakeLock()
+                if (mine == generation) releaseWakeLock()
             }
         }
     }
@@ -183,13 +188,14 @@ class ResourceDownloader(private val context: Context) {
 
     private suspend fun tryDownloadFastBundle(listener: ProgressListener): Boolean = withContext(Dispatchers.IO) {
         var tempZip: File? = null
+        var extracting = false
         try {
             listener.onProgress("Fast CDN", 0.04, 0, "Menghubungkan ke CDN aset lengkap 26.3...")
             tempZip = File(context.cacheDir, "horizon_resources_bundle.zip")
 
             var totalBytes = -1L
             var downloaded = if (tempZip.exists()) tempZip.length() else 0L
-            val maxRetries = 6
+            val maxRetries = 10
             var attempt = 0
             var success = false
             val startTime = System.currentTimeMillis()
@@ -238,13 +244,19 @@ class ResourceDownloader(private val context: Context) {
                     }
 
                     val append = (resp.code == 206 && downloaded > 0L)
+                    if (!append) downloaded = 0L
                     body.byteStream().use { input ->
                         FileOutputStream(tempZip, append).use { output ->
                             val buffer = ByteArray(65536)
                             var readBytes: Int
+                            var lastEmit = 0L
                             while (input.read(buffer).also { readBytes = it } != -1) {
+                                ensureActive()
                                 output.write(buffer, 0, readBytes)
                                 downloaded += readBytes
+                                val nowMs = System.currentTimeMillis()
+                                if (nowMs - lastEmit < 200) continue
+                                lastEmit = nowMs
                                 val elapsed = ((System.currentTimeMillis() - startTime) / 1000).coerceAtLeast(1)
                                 val speed = downloaded / elapsed
                                 val prog = 0.04 + (0.76 * (downloaded.toDouble() / totalBytes.coerceAtLeast(1L).toDouble()))
@@ -260,6 +272,8 @@ class ResourceDownloader(private val context: Context) {
                     } else if (totalBytes <= 0 && downloaded > 300 * 1024 * 1024) {
                         success = true
                     }
+                } catch (ce: CancellationException) {
+                    throw ce
                 } catch (e: Exception) {
                     Log.w(TAG, "Koneksi terputus di $downloaded bytes: ${e.message}. Mencoba kembali...")
                     listener.onProgress("Fast CDN", 0.04 + (0.76 * (downloaded.toDouble() / totalBytes.coerceAtLeast(1L).toDouble())), 0, "Koneksi terputus, menyambung ulang otomatis ($attempt)...")
@@ -270,6 +284,7 @@ class ResourceDownloader(private val context: Context) {
 
             if (!success) return@withContext false
 
+            extracting = true
             listener.onProgress("Ekstraksi", 0.82, 0, "Mengekstrak aset, audio, dan kontrol Bedrock...")
             val names = FileInputStream(tempZip).use { raw ->
                 extractZip(raw, stagingDir, tempZip.length()) { done, total, files ->
@@ -287,9 +302,13 @@ class ResourceDownloader(private val context: Context) {
             listener.onProgress("Selesai", 1.0, 0, "Minecraft 26.3 siap dimainkan!")
             listener.onComplete(targetDir.absolutePath, sha256)
             return@withContext true
+        } catch (ce: CancellationException) {
+            // Keep the partial bundle: the next start resumes it with a Range request.
+            throw ce
         } catch (e: Exception) {
             Log.w(TAG, "Fast bundle download failed: ${e.message}", e)
-            tempZip?.delete()
+            // A network failure keeps the partial file for resume; a bad archive does not.
+            if (extracting) tempZip?.delete()
             deleteTree(stagingDir)
             stagingDir.mkdirs()
             return@withContext false
@@ -445,6 +464,8 @@ class ResourceDownloader(private val context: Context) {
 
             listener.onProgress("Selesai", 1.0, 0, "Resources 26.3 berhasil disiapkan dan siap dimainkan!")
             listener.onComplete(targetDir.absolutePath, sha256)
+        } catch (ce: CancellationException) {
+            throw ce
         } catch (e: Exception) {
             Log.e(TAG, "Mojang pipeline failure: ${e.message}", e)
             listener.onError("Gagal unduh dari server: ${e.message ?: "Koneksi terputus"}. Silakan gunakan tombol IMPORT FILE .ZIP (SAF) untuk memasang file aset secara manual.")

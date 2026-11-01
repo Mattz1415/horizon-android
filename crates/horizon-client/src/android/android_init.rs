@@ -20,7 +20,7 @@ unsafe extern "C" {
     fn __android_log_write(prio: i32, tag: *const std::ffi::c_char, text: *const std::ffi::c_char) -> i32;
 }
 
-const ANDROID_LOG_ERROR: i32 = 6;
+// const ANDROID_LOG_ERROR: i32 = 6;
 const ANDROID_LOG_FATAL: i32 = 7;
 
 /// Initializes the Android execution environment:

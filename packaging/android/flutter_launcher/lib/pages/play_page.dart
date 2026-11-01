@@ -7,9 +7,9 @@ import '../ui/pixel_icon.dart';
 import '../ui/tokens.dart';
 import '../ui/widgets.dart';
 
-/// The first page. Left: the console, framed in corner brackets, with the player,
-/// the game-file state and the one big button. Right: a tall strip with the last
-/// world and the last screenshot, so the way back into the game is one tap.
+/// The primary launcher page. Left: the liquid glass console with account details,
+/// background download status, session presets, and hardware indicators. Right:
+/// recent world launcher, latest screenshot showcase, and active mod metrics.
 class PlayPage extends StatelessWidget {
   const PlayPage({super.key, required this.app, required this.goTo});
 
@@ -26,7 +26,7 @@ class PlayPage extends StatelessWidget {
       if (!wide) {
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
-          children: [Stagger(children: [console, strip])],
+          children: [Stagger(children: [console, const SizedBox(height: 14), strip])],
         );
       }
       return Padding(
@@ -37,7 +37,7 @@ class PlayPage extends StatelessWidget {
             Expanded(child: SingleChildScrollView(child: Stagger(children: [console]))),
             const SizedBox(width: 14),
             SizedBox(
-              width: (c.maxWidth * 0.30).clamp(240.0, 360.0),
+              width: (c.maxWidth * 0.32).clamp(260.0, 380.0),
               child: SingleChildScrollView(child: Stagger(children: [strip])),
             ),
           ],
@@ -55,35 +55,105 @@ class _Console extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lastPlayed =
-        app.lastPlayed > 0 ? 'Terakhir main ${formatAgo(app.lastPlayed)}' : 'Belum pernah dimainkan di perangkat ini';
+    final lastPlayed = app.lastPlayed > 0
+        ? 'Terakhir main ${formatAgo(app.lastPlayed)}'
+        : 'Belum pernah dimainkan di perangkat ini';
     return Brackets(
       inset: 6,
       child: Glass(
-        sheen: app.ready ? 0.15 : 0.6,
-        padding: const EdgeInsets.fromLTRB(26, 22, 26, 22),
+        sheen: app.ready ? 0.20 : 0.65,
+        accentGlow: app.ready,
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Minecraft 26.3 di Horizon', style: Hz.small),
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Hz.accent.withOpacity(0.18),
+                    borderRadius: Hz.r10,
+                    border: Border.all(color: Hz.accent.withOpacity(0.5)),
+                  ),
+                  child: Center(
+                    child: PixelIcon('user', size: 18, color: Hz.accent),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Minecraft 26.3 di Horizon', style: Hz.small),
+                      Text(
+                        app.account,
+                        style: Hz.display.copyWith(fontSize: 28),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Btn(label: 'Ganti akun', icon: 'user', kind: BtnKind.quiet, onTap: () => goTo(3)),
+              ],
+            ),
             const SizedBox(height: 6),
-            Text(app.account, style: Hz.display.copyWith(fontSize: 30), maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 2),
             Text(lastPlayed, style: Hz.body.copyWith(color: Hz.muted)),
-            const SizedBox(height: 18),
+            const SizedBox(height: 16),
             _ResourceState(app: app),
             const SizedBox(height: 18),
             Wrap(
-              spacing: 10,
+              spacing: 12,
               runSpacing: 10,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _PlayButton(app: app),
-                Btn(label: 'Ganti akun', icon: 'user', onTap: () => goTo(3)),
+                _QuickBackendToggle(app: app),
               ],
             ),
             const SizedBox(height: 18),
             _Presets(app: app, goTo: goTo),
+            const SizedBox(height: 16),
+            _HardwareStatusCard(app: app),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Fast toggle for Vulkan / OpenGL ES right from the play console.
+class _QuickBackendToggle extends StatelessWidget {
+  const _QuickBackendToggle({required this.app});
+
+  final Launcher app;
+
+  @override
+  Widget build(BuildContext context) {
+    final isVulkan = app.backend != 'opengl';
+    return Pressable(
+      onTap: () => app.setBackend(isVulkan ? 'opengl' : 'vulkan'),
+      semanticLabel: 'Grafis ${isVulkan ? "Vulkan" : "OpenGL ES"}, ketuk untuk mengganti',
+      borderRadius: Hz.r10,
+      child: Container(
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: Hz.raised.withOpacity(0.8),
+          borderRadius: Hz.r10,
+          border: Border.all(color: Hz.line),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            PixelIcon('zap', size: 16, color: isVulkan ? Hz.accent : Hz.warn),
+            const SizedBox(width: 8),
+            Text(
+              isVulkan ? 'Vulkan' : 'OpenGL ES',
+              style: Hz.body.copyWith(color: Hz.ink, fontWeight: FontWeight.w500),
+            ),
           ],
         ),
       ),
@@ -143,6 +213,48 @@ class _Presets extends StatelessWidget {
   }
 }
 
+/// Quick hardware and memory status card for device awareness.
+class _HardwareStatusCard extends StatelessWidget {
+  const _HardwareStatusCard({required this.app});
+
+  final Launcher app;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = app.device;
+    if (d == null) return const SizedBox.shrink();
+    final cores = (d['cores'] as num?)?.toInt() ?? 8;
+    final totalRam = (d['totalRam'] as num?)?.toInt() ?? 0;
+    final availRam = (d['availRam'] as num?)?.toInt() ?? 0;
+    final freeStorage = (d['freeStorage'] as num?)?.toInt() ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Hz.surface.withOpacity(Hz.p.dark ? 0.45 : 0.65),
+        borderRadius: Hz.r10,
+        border: Border.all(color: Hz.line.withOpacity(0.7)),
+      ),
+      child: Row(
+        children: [
+          PixelIcon('sliders', size: 16, color: Hz.muted),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '$cores Inti CPU (${app.workerThreads == 0 ? "Thread auto" : "${app.workerThreads} thread"}), '
+              'RAM bebas ${formatBytes(availRam)}/${formatBytes(totalRam)}, '
+              'Penyimpanan ${formatBytes(freeStorage)}',
+              style: Hz.small.copyWith(color: Hz.inkSoft),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// The game files: one block that changes shape with the download state.
 class _ResourceState extends StatelessWidget {
   const _ResourceState({required this.app});
@@ -159,7 +271,7 @@ class _ResourceState extends StatelessWidget {
           title: 'File game lengkap, siap main',
           body: app.sha256.isNotEmpty
               ? 'Checksum ${app.sha256.substring(0, app.sha256.length.clamp(0, 12))}'
-              : 'Sudah diperiksa di perangkat ini',
+              : 'Sudah diverifikasi di perangkat ini',
         ),
       Phase.checking => _line(
           key: const ValueKey('checking'),
@@ -177,7 +289,7 @@ class _ResourceState extends StatelessWidget {
               icon: 'download',
               color: Hz.warn,
               title: 'File game belum terpasang',
-              body: 'Unduh sekali, lalu bisa main tanpa internet. Ukurannya besar, pakai Wi-Fi.',
+              body: 'Unduh sekali, lalu bisa main tanpa internet. Dilengkapi instalasi latar belakang agar tidak terputus saat berpindah aplikasi.',
             ),
             const SizedBox(height: 12),
             Wrap(spacing: 10, runSpacing: 10, children: [
@@ -252,6 +364,8 @@ class _Progress extends StatelessWidget {
   Widget build(BuildContext context) {
     final paused = app.phase == Phase.paused;
     final pct = (app.progress * 100).toStringAsFixed(1);
+    final notifDenied = app.notificationsAllowed == false;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -280,6 +394,61 @@ class _Progress extends StatelessWidget {
           Expanded(child: Text(app.detail, style: Hz.small, maxLines: 1, overflow: TextOverflow.ellipsis)),
           if (!paused && app.speed > 0) Text('${formatBytes(app.speed)}/s', style: Hz.figure),
         ]),
+        const SizedBox(height: 8),
+        // Foreground/background install reassurance badge
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: (paused ? Hz.warn : Hz.success).withOpacity(0.12),
+            borderRadius: Hz.r6,
+            border: Border.all(color: (paused ? Hz.warn : Hz.success).withOpacity(0.4)),
+          ),
+          child: Row(
+            children: [
+              PixelIcon(paused ? 'clock' : 'check', size: 14, color: paused ? Hz.warn : Hz.success),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  paused
+                      ? 'Unduhan ditahan. Tekan Lanjutkan untuk melanjutkan.'
+                      : 'Instalasi latar belakang aktif: download terus berjalan meski membuka aplikasi lain.',
+                  style: Hz.small.copyWith(
+                    color: paused ? Hz.warn : Hz.success,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (notifDenied) ...[
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: Hz.warn.withOpacity(0.10),
+              borderRadius: Hz.r6,
+              border: Border.all(color: Hz.warn.withOpacity(0.35)),
+            ),
+            child: Row(
+              children: [
+                PixelIcon('info-box', size: 14, color: Hz.warn),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Aktifkan notifikasi agar progres terlihat di bar status Android.',
+                    style: Hz.small.copyWith(color: Hz.inkSoft),
+                  ),
+                ),
+                Btn(
+                  label: 'Izinkan',
+                  kind: BtnKind.quiet,
+                  onTap: app.requestNotifications,
+                ),
+              ],
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
         paused
             ? Btn(label: 'Lanjutkan', icon: 'play', kind: BtnKind.primary, onTap: app.startDownload)
@@ -395,7 +564,23 @@ class _PlayButtonState extends State<_PlayButton> with SingleTickerProviderState
           child: Container(
             constraints: const BoxConstraints(minHeight: 56, minWidth: 200),
             padding: const EdgeInsets.symmetric(horizontal: 28),
-            color: Hz.face,
+            decoration: BoxDecoration(
+              color: enabled ? Hz.face : Hz.raised,
+              borderRadius: Hz.r14,
+              border: Border.all(
+                color: enabled ? Hz.accent.withOpacity(0.5) : Hz.line,
+                width: 1,
+              ),
+              boxShadow: enabled
+                  ? [
+                      BoxShadow(
+                        color: Hz.face.withOpacity(0.35),
+                        blurRadius: 16,
+                        spreadRadius: 1,
+                      )
+                    ]
+                  : null,
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.center,
@@ -403,11 +588,14 @@ class _PlayButtonState extends State<_PlayButton> with SingleTickerProviderState
                 if (app.launching)
                   SizedBox.square(dimension: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Hz.onFace))
                 else
-                  PixelIcon('play', size: 22, color: Hz.onFace),
+                  PixelIcon('play', size: 22, color: enabled ? Hz.onFace : Hz.muted),
                 const SizedBox(width: 12),
                 Text(
                   app.launching ? 'Membuka game' : 'Main',
-                  style: Hz.display.copyWith(color: Hz.onFace, fontSize: 20),
+                  style: Hz.display.copyWith(
+                    color: enabled ? Hz.onFace : Hz.muted,
+                    fontSize: 20,
+                  ),
                 ),
               ],
             ),
@@ -427,7 +615,6 @@ class _SweepPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (t == 0) return;
-    // The sweep crosses in the first 40% of the loop, then rests.
     final k = (t / 0.4).clamp(0.0, 1.0);
     if (k >= 1) return;
     final x = -size.width * 0.4 + k * size.width * 1.8;
@@ -435,7 +622,7 @@ class _SweepPainter extends CustomPainter {
       Offset.zero & size,
       Paint()
         ..shader = LinearGradient(
-          colors: [color.withOpacity(0), color.withOpacity(0.18), color.withOpacity(0)],
+          colors: [color.withOpacity(0), color.withOpacity(0.20), color.withOpacity(0)],
         ).createShader(Rect.fromLTWH(x, 0, size.width * 0.4, size.height)),
     );
   }
@@ -450,6 +637,56 @@ class _Strip extends StatelessWidget {
   final Launcher app;
   final ValueChanged<int> goTo;
 
+  void _showScreenshot(BuildContext context, Screenshot shot) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(20),
+        child: Glass(
+          radius: Hz.r20,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Tangkapan layar: ${formatAgo(shot.modified)}',
+                      style: Hz.title.copyWith(fontSize: 15),
+                    ),
+                  ),
+                  IconBtn(
+                    icon: 'check',
+                    label: 'Tutup',
+                    onTap: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: Hz.r14,
+                child: Image.file(
+                  File(shot.path),
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 200,
+                    color: Hz.raised,
+                    child: Center(
+                      child: Text('Gagal memuat gambar', style: Hz.small),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final mods = app.addons?.where((a) => a.type == 'mod' && a.enabled).length;
@@ -460,7 +697,7 @@ class _Strip extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Plate(
-          padding: const EdgeInsets.fromLTRB(16, 8, 6, 12),
+          padding: const EdgeInsets.fromLTRB(16, 10, 8, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -468,6 +705,7 @@ class _Strip extends StatelessWidget {
                 Expanded(child: Text('Dunia terakhir', style: Hz.title.copyWith(fontSize: 14))),
                 IconBtn(icon: 'chevron-right', label: 'Lihat semua dunia', onTap: () => goTo(2)),
               ]),
+              const SizedBox(height: 4),
               if (worlds == null)
                 Text('Memuat...', style: Hz.small)
               else if (worlds.isEmpty)
@@ -486,13 +724,13 @@ class _Strip extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         if (shot != null) ...[
           Semantics(
-            label: 'Screenshot terbaru, ${formatAgo(shot.modified)}. Buka galeri',
+            label: 'Screenshot terbaru, ${formatAgo(shot.modified)}. Ketuk untuk memperbesar',
             button: true,
             child: Pressable(
-              onTap: () => goTo(2),
+              onTap: () => _showScreenshot(context, shot),
               borderRadius: Hz.r14,
               child: ClipRRect(
                 borderRadius: Hz.r14,
@@ -518,8 +756,17 @@ class _Strip extends StatelessWidget {
                             colors: [Colors.black.withOpacity(0), Colors.black.withOpacity(0.72)],
                           ),
                         ),
-                        child: Text('Screenshot ${formatAgo(shot.modified)}',
-                            style: Hz.small.copyWith(color: const Color(0xFFF4F7FB))),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Screenshot ${formatAgo(shot.modified)}',
+                                style: Hz.small.copyWith(color: const Color(0xFFF4F7FB)),
+                              ),
+                            ),
+                            const Icon(Icons.fullscreen, size: 18, color: Colors.white70),
+                          ],
+                        ),
                       ),
                     ),
                   ]),
@@ -527,10 +774,10 @@ class _Strip extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
         ],
         Plate(
-          padding: const EdgeInsets.fromLTRB(16, 8, 6, 12),
+          padding: const EdgeInsets.fromLTRB(16, 10, 8, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -538,6 +785,7 @@ class _Strip extends StatelessWidget {
                 Expanded(child: Text('Yang ikut dimuat', style: Hz.title.copyWith(fontSize: 14))),
                 IconBtn(icon: 'chevron-right', label: 'Buka mod', onTap: () => goTo(1)),
               ]),
+              const SizedBox(height: 4),
               Wrap(spacing: 22, runSpacing: 10, children: [
                 Fact(label: 'Mod aktif', value: mods == null ? '...' : '$mods'),
                 Fact(label: 'Shader', value: shader ?? 'Tidak ada'),

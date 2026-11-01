@@ -81,10 +81,11 @@ class _HorizonPainter extends CustomPainter {
   static const _block = 8.0;
 
   // Fixed pseudo-random so the ridge and the stars look the same on every start.
-  static double _h(int i) {
+  static final List<double> _hTable = List<double>.generate(1024, (i) {
     final x = math.sin(i * 12.9898) * 43758.5453;
     return x - x.floorToDouble();
-  }
+  });
+  static double _h(int i) => _hTable[i & 1023];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -186,35 +187,44 @@ class Glass extends StatelessWidget {
     this.radius = Hz.r20,
     this.padding = EdgeInsets.zero,
     this.sheen = 0.3,
+    this.accentGlow = false,
   });
 
   final Widget child;
   final BorderRadius radius;
   final EdgeInsetsGeometry padding;
   final double sheen;
+  final bool accentGlow;
 
   @override
   Widget build(BuildContext context) {
     Hz.watch(context);
     final p = Hz.p;
+    final calm = Hz.calm(context);
     return ClipRRect(
       borderRadius: radius,
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        filter: ImageFilter.blur(sigmaX: calm ? 8 : 20, sigmaY: calm ? 8 : 20),
         child: CustomPaint(
-          foregroundPainter: _RimPainter(radius, p.dark ? Colors.white : p.face, sheen),
+          foregroundPainter: _RimPainter(
+            radius,
+            p.dark ? Colors.white : p.face,
+            sheen,
+            accentGlow ? p.accent : null,
+          ),
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: radius,
-              color: p.surface.withOpacity(p.dark ? 0.58 : 0.72),
+              color: p.surface.withOpacity(p.dark ? 0.62 : 0.76),
               gradient: LinearGradient(
                 begin: Alignment(-1 + sheen * 2, -1),
                 end: Alignment(1 - sheen, 1),
                 colors: [
-                  (p.dark ? Colors.white : p.face).withOpacity(p.dark ? 0.08 : 0.05),
+                  (p.dark ? Colors.white : p.face).withOpacity(p.dark ? 0.09 : 0.06),
+                  if (accentGlow) p.accent.withOpacity(0.04) else Colors.transparent,
                   Colors.transparent,
                 ],
-                stops: const [0, 0.55],
+                stops: const [0, 0.35, 0.70],
               ),
             ),
             child: Padding(padding: padding, child: child),
@@ -226,31 +236,39 @@ class Glass extends StatelessWidget {
 }
 
 class _RimPainter extends CustomPainter {
-  _RimPainter(this.radius, this.color, this.sheen);
+  _RimPainter(this.radius, this.color, this.sheen, this.accent);
 
   final BorderRadius radius;
   final Color color;
   final double sheen;
+  final Color? accent;
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final rr = radius.toRRect(rect).deflate(0.5);
+    final baseColor = accent ?? color;
     canvas.drawRRect(
       rr,
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1
         ..shader = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [color.withOpacity(0.28), color.withOpacity(0.06)],
+          begin: Alignment(-0.6 + sheen * 1.2, -1),
+          end: Alignment(0.6 - sheen * 0.6, 1),
+          colors: [
+            baseColor.withOpacity(accent != null ? 0.50 : 0.36),
+            baseColor.withOpacity(0.12),
+            baseColor.withOpacity(0.04),
+          ],
+          stops: const [0.0, 0.45, 1.0],
         ).createShader(rect),
     );
   }
 
   @override
-  bool shouldRepaint(_RimPainter old) => old.color != color || old.sheen != sheen;
+  bool shouldRepaint(_RimPainter old) =>
+      old.color != color || old.sheen != sheen || old.accent != accent;
 }
 
 /// Solid surface for most content: lists, forms, panels.

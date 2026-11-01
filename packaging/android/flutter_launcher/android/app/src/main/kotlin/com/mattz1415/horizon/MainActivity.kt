@@ -2,7 +2,9 @@ package com.mattz1415.horizon
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -31,10 +33,9 @@ class MainActivity : FlutterActivity() {
             private set
     }
 
-    private val downloader: ResourceDownloader by lazy {
-        ResourceDownloader(applicationContext)
-    }
+    private val downloader: ResourceDownloader by lazy { InstallHub.downloader(applicationContext) }
     private var progressEventSink: EventChannel.EventSink? = null
+    private val installSink = InstallHub.Sink { progressEventSink?.success(it) }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
@@ -49,7 +50,7 @@ class MainActivity : FlutterActivity() {
         if (requestCode == REQUEST_SAF_ZIP && resultCode == Activity.RESULT_OK) {
             val uri = data?.data
             if (uri != null) {
-                downloader.importPreparedZip(uri, createDownloaderListener())
+                InstallHub.importZip(this, uri)
             }
         }
         if (requestCode == REQUEST_SAF_ADDON) {
@@ -97,9 +98,11 @@ class MainActivity : FlutterActivity() {
             .setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
                     progressEventSink = events
+                    InstallHub.attach(installSink)
                 }
 
                 override fun onCancel(arguments: Any?) {
+                    InstallHub.detach(installSink)
                     progressEventSink = null
                 }
             })
@@ -117,18 +120,20 @@ class MainActivity : FlutterActivity() {
                                 mapOf(
                                     "isPrepared" to prepared,
                                     "sha256" to sha,
-                                    "path" to downloader.targetDir.absolutePath
+                                    "path" to downloader.targetDir.absolutePath,
+                                    "busy" to InstallHub.busy,
+                                    "last" to InstallHub.last
                                 )
                             )
                         }
 
                         "startDownload" -> {
-                            downloader.startDownload(createDownloaderListener())
+                            InstallHub.startDownload(this)
                             result.success(true)
                         }
 
                         "pauseDownload" -> {
-                            downloader.pauseDownload()
+                            InstallHub.pause(this)
                             result.success(true)
                         }
 
@@ -139,6 +144,13 @@ class MainActivity : FlutterActivity() {
                             }
                             startActivityForResult(intent, REQUEST_SAF_ZIP)
                             result.success(true)
+                        }
+
+                        "notificationsAllowed" -> result.success(notificationsAllowed())
+
+                        "requestNotifications" -> {
+                            requestNotifications()
+                            result.success(notificationsAllowed())
                         }
 
                         "getAccounts" -> {
@@ -364,49 +376,6 @@ class MainActivity : FlutterActivity() {
             }
     }
 
-    private fun createDownloaderListener() = object : ResourceDownloader.ProgressListener {
-        override fun onProgress(stage: String, progress: Double, speedBytesPerSec: Long, detail: String) {
-            mainHandler.post {
-                progressEventSink?.success(
-                    mapOf(
-                        "status" to "downloading",
-                        "stage" to stage,
-                        "progress" to progress,
-                        "speed" to speedBytesPerSec,
-                        "detail" to detail
-                    )
-                )
-            }
-        }
-
-        override fun onComplete(resourcesPath: String, sha256: String) {
-            mainHandler.post {
-                progressEventSink?.success(
-                    mapOf(
-                        "status" to "completed",
-                        "stage" to "Selesai",
-                        "progress" to 1.0,
-                        "speed" to 0L,
-                        "detail" to "Resources 26.3 diverifikasi",
-                        "path" to resourcesPath,
-                        "sha256" to sha256
-                    )
-                )
-            }
-        }
-
-        override fun onError(error: String) {
-            mainHandler.post {
-                progressEventSink?.success(
-                    mapOf(
-                        "status" to "error",
-                        "error" to error
-                    )
-                )
-            }
-        }
-    }
-
     private val http by lazy {
         OkHttpClient.Builder().followRedirects(true).followSslRedirects(true)
             .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
@@ -478,7 +447,18 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun notificationsAllowed(): Boolean =
+        Build.VERSION.SDK_INT < 33 ||
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+
+    private fun requestNotifications() {
+        if (!notificationsAllowed()) {
+            requestPermissions(arrayOf(android.Manifest.permission.POST_NOTIFICATIONS), 4104)
+        }
+    }
+
     override fun onDestroy() {
+        InstallHub.detach(installSink)
         super.onDestroy()
         currentInstance = null
         scope.cancel()

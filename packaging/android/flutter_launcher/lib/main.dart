@@ -58,6 +58,8 @@ class _HorizonAppState extends State<HorizonApp> with SingleTickerProviderStateM
       app.loadAddons();
       app.loadDevice();
       app.loadScreenshots();
+      app.checkResources();
+      app.checkNotifications();
       _retheme();
     }
   }
@@ -252,11 +254,38 @@ class _TopBar extends StatelessWidget {
                     AnimatedPositioned(
                       duration: Hz.calm(context) ? Duration.zero : Hz.move,
                       curve: Hz.ease,
-                      left: itemW * index + 10,
-                      width: itemW - 20,
+                      left: itemW * index + 4,
+                      width: itemW - 8,
+                      top: 6,
+                      bottom: 6,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: Hz.r10,
+                          color: Hz.accent.withOpacity(Hz.p.dark ? 0.16 : 0.10),
+                          border: Border.all(color: Hz.accent.withOpacity(0.35), width: 1),
+                        ),
+                      ),
+                    ),
+                    AnimatedPositioned(
+                      duration: Hz.calm(context) ? Duration.zero : Hz.move,
+                      curve: Hz.ease,
+                      left: itemW * index + 12,
+                      width: itemW - 24,
                       bottom: 0,
-                      height: 2,
-                      child: ColoredBox(color: Hz.accent),
+                      height: 2.5,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Hz.accent,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(2)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Hz.accent.withOpacity(0.6),
+                              blurRadius: 4,
+                              spreadRadius: 0.5,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     Row(children: [
                       for (var i = 0; i < _dests.length; i++)
@@ -268,6 +297,9 @@ class _TopBar extends StatelessWidget {
                             selected: i == index,
                             showLabel: labels,
                             badge: i == 0 && app.phase == Phase.downloading,
+                            badgeText: i == 0 && app.phase == Phase.downloading
+                                ? '${(app.progress * 100).toInt()}%'
+                                : null,
                             onTap: () => onTap(i),
                           ),
                         ),
@@ -277,6 +309,36 @@ class _TopBar extends StatelessWidget {
               }),
             ),
             const SizedBox(width: 6),
+            if (w >= 840) ...[
+              Pressable(
+                onTap: () => onTap(3),
+                borderRadius: Hz.r10,
+                semanticLabel: 'Profil ${app.account}',
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  decoration: BoxDecoration(
+                    color: Hz.raised.withOpacity(0.6),
+                    borderRadius: Hz.r10,
+                    border: Border.all(color: Hz.line.withOpacity(0.7)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      PixelIcon('user', size: 14, color: Hz.accent),
+                      const SizedBox(width: 6),
+                      Text(
+                        app.account,
+                        style: Hz.small.copyWith(color: Hz.ink, fontWeight: FontWeight.w500),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
             _ThemeButton(app: app),
           ],
         ),
@@ -293,12 +355,14 @@ class _Tab extends StatelessWidget {
     required this.showLabel,
     required this.onTap,
     this.badge = false,
+    this.badgeText,
   });
 
   final _Dest dest;
   final bool selected;
   final bool showLabel;
   final bool badge;
+  final String? badgeText;
   final VoidCallback onTap;
 
   @override
@@ -326,6 +390,21 @@ class _Tab extends StatelessWidget {
                       overflow: TextOverflow.fade,
                       softWrap: false,
                       style: Hz.body.copyWith(color: color, fontWeight: selected ? FontWeight.w600 : FontWeight.w400),
+                    ),
+                  ),
+                ],
+                if (badgeText != null) ...[
+                  const SizedBox(width: 5),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: Hz.accent.withOpacity(0.18),
+                      borderRadius: Hz.r6,
+                      border: Border.all(color: Hz.accent.withOpacity(0.5), width: 0.8),
+                    ),
+                    child: Text(
+                      badgeText!,
+                      style: Hz.figure.copyWith(fontSize: 10, color: Hz.accent, fontWeight: FontWeight.w600),
                     ),
                   ),
                 ],

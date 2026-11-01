@@ -61,6 +61,10 @@ void main() {
           return {'json': _registry, 'cached': false, 'fetched': DateTime.now().millisecondsSinceEpoch};
         case 'getScreenshots':
           return <Map>[];
+        case 'notificationsAllowed':
+          return true;
+        case 'requestNotifications':
+          return true;
         case 'openUrl':
           return true;
         case 'getLogs':
@@ -136,5 +140,18 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
       expect(tester.takeException(), isNull);
     }
+  });
+
+  testWidgets('play console shows device performance facts and account details', (tester) async {
+    tester.view.physicalSize = const Size(2560, 1200);
+    tester.view.devicePixelRatio = 2;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(const HorizonApp());
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(seconds: 1));
+    expect(find.text('Idris'), findsWidgets);
+    expect(find.text('Vulkan'), findsWidgets);
+    expect(find.textContaining('Inti CPU'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
